@@ -112,6 +112,7 @@ class SafeBackup:
 
 
 
+
 def main():
 	parser = argparse.ArgumentParser(
 				prog='safe_backup',
@@ -158,6 +159,8 @@ def main():
 	elif args.d:
 		if not Path(args.d[1]).is_dir():
 			parser.error(f"<DEST_DIRECTORY>='{args.d[1]}' is not directory or not exist!")
+		if not args.d[2].isdigit() or int(args.d[2])<=0:
+			parser.error(f"<NUMBER_OF_WORKERS>='{args.d[2]}' is not integer or not bigger than 0!")
 	else:
 		parser.error(f"Input args='{args}' is not defined!")
 		
