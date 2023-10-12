@@ -35,7 +35,21 @@ AWS_ENDPOINT_URL = os.environ['AWS_ENDPOINT_URL']
 	
 class SafeBackup:
 	redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
+	
+	def __s3_connect__(self):
+		session = boto3.session.Session(
+			aws_access_key_id=AWS_ACCESS_KEY_ID, 
+			aws_secret_access_key=AWS_SECRET_ACCESS_KEY, 
+			aws_session_token=None
+		)
 
+		return session.resource('s3',
+			region_name=AWS_DEFAULT_REGION,
+			endpoint_url=AWS_ENDPOINT_URL, 
+			config=boto3.session.Config(signature_version='s3v4'), 
+			verify=False
+		)
+	
 	def save_files_list_in_redis(self, source, location):
 		"""
 			Make a list from source and save it in redis.
@@ -51,18 +65,7 @@ class SafeBackup:
 		match source:
 			case 's3':
 				logging.debug("Source is a s3.")
-				session = boto3.session.Session(
-					aws_access_key_id=AWS_ACCESS_KEY_ID, 
-					aws_secret_access_key=AWS_SECRET_ACCESS_KEY, 
-					aws_session_token=None
-				)
-
-				s3_re = session.resource('s3',
-					region_name=AWS_DEFAULT_REGION,
-					endpoint_url=AWS_ENDPOINT_URL, 
-					config=boto3.session.Config(signature_version='s3v4'), 
-					verify=False
-				)
+				s3_re = self.__s3_connect__()
 				for bucket in s3_re.buckets.all():
 					bucket = s3_re.Bucket(bucket.name)
 					for obj in bucket.objects.all():
@@ -115,14 +118,14 @@ class SafeBackup:
 	def download_files_list_from_redis(self, redis_key, destination, workers):
 		source=redis_key.split(':')
 		logging.debug(source)
-		match source[0]:
-			case 'local':
-				for member in self.redis_db.sscan(redis_key,0)[1]:
-					logging.debug(f"{Path(source[1]).parent}/{member.decode('UTF-8')} --> {destination}/{member.decode('UTF-8')}")
-					parent = Path(f"{destination}/{member.decode('UTF-8')}").parent
-					if not os.path.exists(parent):
-						os.makedirs(parent)
-					self.redis_db.smove(redis_key, f"{redis_key}-working", member)
+		for member in self.redis_db.sscan(redis_key,0)[1]:
+			logging.debug(f"{Path(source[1]).parent}/{member.decode('UTF-8')} --> {destination}/{member.decode('UTF-8')}")
+			parent = Path(f"{destination}/{member.decode('UTF-8')}").parent
+			if not os.path.exists(parent):
+				os.makedirs(parent)
+			self.redis_db.smove(redis_key, f"{redis_key}-working", member)
+			match source[0]:
+				case 'local':				
 					try:
 						shutil.copy2(f"{Path(source[1]).parent}/{member.decode('UTF-8')}", f"{destination}/{member.decode('UTF-8')}")
 						self.redis_db.srem(f"{redis_key}-working", member)
@@ -133,8 +136,15 @@ class SafeBackup:
 						# self.redis_db.srem(f"{redis_key}-working", member)
 					# else:	
 						# self.redis_db.smove(f"{redis_key}-working", redis_key, member)
-			case 's3':
-				pass
+				case 's3':
+					s3_dest = self.__s3_connect__().meta.client
+					try:
+						# shutil.copy2(f"{Path(source[1]).parent}/{member.decode('UTF-8')}", f"{destination}/{member.decode('UTF-8')}")
+						s3_dest.download_file(source[1], member.decode('UTF-8'), f"{destination}/{member.decode('UTF-8')}")
+						self.redis_db.srem(f"{redis_key}-working", member)
+					except Exception as e:
+						print(f"There was an error: {e}")
+						self.redis_db.smove(f"{redis_key}-working", redis_key, member)
 	
 
 
@@ -156,6 +166,7 @@ def main():
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
 				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
 				then copy source files to destination')
+	# *** write copy from s3 to s3
 	group.add_argument('-d', nargs=3, metavar=('<REDIS_KEY>', 
 				'<DEST_DIRECTORY>', '<NUMBER_OF_WORKERS>'),
 				help= 'read Redis and download source files safely to destination')	
