@@ -19,7 +19,7 @@
 # 
 
 import logging
-import os
+import os, shutil
 import boto3
 from pathlib import Path
 import redis
@@ -67,7 +67,7 @@ class SafeBackup:
 					bucket = s3_re.Bucket(bucket.name)
 					for obj in bucket.objects.all():
 						logging.debug(f"{obj.key} {obj.last_modified}")
-						redis_key = f"{source}-{location}"
+						redis_key = f"{source}:{location}"
 						self.redis_db.sadd(redis_key, obj.key)
 
 			case 'local':
@@ -100,7 +100,8 @@ class SafeBackup:
 							logging.debug('FILE INSIDE ' + files_path + ': '+ filename)
 							file_path = f"{files_path}/{filename}"
 							# self.redis_db.rpush(root_path, file_path)
-							redis_key = f"{source}-{root_path}"
+							# redis_key = f"{source}:{root_path}"
+							redis_key = f"{source}:{location}"
 							self.redis_db.sadd(redis_key, file_path)
 					logging.debug(self.redis_db.keys())
 				else:
@@ -110,6 +111,31 @@ class SafeBackup:
 				print("Source is not valied.")
 		return redis_key
 
+
+	def download_files_list_from_redis(self, redis_key, destination, workers):
+		source=redis_key.split(':')
+		logging.debug(source)
+		match source[0]:
+			case 'local':
+				for member in self.redis_db.sscan(redis_key,0)[1]:
+					logging.debug(f"{Path(source[1]).parent}/{member.decode('UTF-8')} --> {destination}/{member.decode('UTF-8')}")
+					parent = Path(f"{destination}/{member.decode('UTF-8')}").parent
+					if not os.path.exists(parent):
+						os.makedirs(parent)
+					self.redis_db.smove(redis_key, f"{redis_key}-working", member)
+					try:
+						shutil.copy2(f"{Path(source[1]).parent}/{member.decode('UTF-8')}", f"{destination}/{member.decode('UTF-8')}")
+						self.redis_db.srem(f"{redis_key}-working", member)
+					except Exception as e:
+						print(f"There was an error: {e}")
+						self.redis_db.smove(f"{redis_key}-working", redis_key, member)
+					# if shutil.copy2(f"{Path(source[1]).parent}/{member.decode('UTF-8')}", f"{destination}/{member.decode('UTF-8')}"):
+						# self.redis_db.srem(f"{redis_key}-working", member)
+					# else:	
+						# self.redis_db.smove(f"{redis_key}-working", redis_key, member)
+			case 's3':
+				pass
+	
 
 
 
@@ -157,10 +183,13 @@ def main():
 		if not Path(args.c[2]).is_dir():
 			parser.error(f"<DEST_DIRECTORY>='{args.c[2]}' is not directory or not exist!")
 	elif args.d:
+		if not safe_backup.redis_db.exists(args.d[0])==1:
+			parser.error(f"<REDIS_KEY>='{args.d[0]}' is not exists!")
 		if not Path(args.d[1]).is_dir():
 			parser.error(f"<DEST_DIRECTORY>='{args.d[1]}' is not directory or not exist!")
 		if not args.d[2].isdigit() or int(args.d[2])<=0:
 			parser.error(f"<NUMBER_OF_WORKERS>='{args.d[2]}' is not integer or not bigger than 0!")
+		safe_backup.download_files_list_from_redis(args.d[0], args.d[1], args.d[2])
 	else:
 		parser.error(f"Input args='{args}' is not defined!")
 		
