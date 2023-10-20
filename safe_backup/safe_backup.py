@@ -25,6 +25,8 @@ from botocore.client import ClientError
 from pathlib import Path
 import redis
 import argparse
+from multiprocessing import Pool
+
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - \
   %(levelname)s -  %(message)s')
@@ -92,10 +94,14 @@ class SafeBackup:
 			return False
 		return True
 		
-	def __make_redis_list_from_pages__(self, redis_key, page_contetnts):		
-		for content in page_contetnts:
-			logging.debug(content['Key'])
-			self.redis_db.sadd(redis_key, content['Key'])
+	def __make_redis_list_from_pages__(self, args):	
+		logging.debug(args[1][0]['Key'])
+		self.redis_db.sadd(args[0], args[1][0]['Key'])
+
+	def __pooled__(self, redis_key, page_contents):
+		with Pool() as pool:
+			args = [[redis_key, page_contents],]
+			pool.map(self.__make_redis_list_from_pages__, args)	
 	
 	def __s3_list_paginator__(self, bucket, page_items=1, max_items=None, first_marker=''):	
 		# Create a client
@@ -123,7 +129,8 @@ class SafeBackup:
 				logging.debug(f" **** NextMarker ******** ")
 				
 			if 'Contents' in list(page.keys()):
-				self.__make_redis_list_from_pages__(redis_key, page['Contents'])
+				# self.__make_redis_list_from_pages__(redis_key, page['Contents'])
+				self.__pooled__(redis_key, page['Contents'])
 	
 	def save_files_list_in_redis(self, source, location):
 		"""
