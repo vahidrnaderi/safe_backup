@@ -92,15 +92,6 @@ class SafeBackup:
 			return False
 		return True
 		
-	def __make_redis_list__(self, bucket):		
-		redis_key = f"s3:{bucket.name}"
-		for obj in bucket.objects.all():
-			logging.debug(f" *** save_files_list_in_redis() => {obj}")
-			logging.debug(f" *** save_files_list_in_redis() => {obj.last_modified}")
-			self.redis_db.sadd(redis_key, obj.key)
-		print(f"List of files created in '{redis_key}' redis key successfuly.")
-	
-		
 	def __make_redis_list_from_pages__(self, redis_key, page_contetnts):		
 		for content in page_contetnts:
 			logging.debug(content['Key'])
@@ -124,7 +115,7 @@ class SafeBackup:
 		redis_key = f"s3:{bucket.name}"
 		
 		for page in page_iterator:
-			# print(f" ****************\n {page}\n ############ \n")
+			logging.debug(f" ****************\n {page}\n ############ \n")
 			logging.debug(f" **** Marker ************ {page['Marker']}")
 			if page['IsTruncated']:
 				logging.debug(f" **** NextMarker ******** {page['NextMarker']}")
@@ -154,11 +145,9 @@ class SafeBackup:
 				s3_so = self.__s3_connect__()
 				if location == '*':
 					for bucket in s3_so.buckets.all():
-						# self.__make_redis_list__(bucket)
 						self.__s3_list_paginator__(bucket)
 				else:
 					bucket = s3_so.Bucket(location)
-					# self.__make_redis_list__(bucket)
 					self.__s3_list_paginator__(bucket)
 
 			case 'local':
