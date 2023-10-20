@@ -91,6 +91,14 @@ class SafeBackup:
 			logging.error(e)
 			return False
 		return True
+		
+	def __make_redis_list__(self, bucket):		
+		redis_key = f"s3:{bucket.name}"
+		for obj in bucket.objects.all():
+			logging.debug(f" *** save_files_list_in_redis() => {obj}")
+			logging.debug(f" *** save_files_list_in_redis() => {obj.last_modified}")
+			self.redis_db.sadd(redis_key, obj.key")
+		print(f"List of files created in '{redis_key}' redis key successfuly.")
 	
 	def save_files_list_in_redis(self, source, location):
 		"""
@@ -100,55 +108,58 @@ class SafeBackup:
 			if source is 'local' then
 					<location> must be <source_directory>	
 			and if source is 's3' then
-					<location> must be <bucket_name>
+					<location> must be: 
+							<bucket_name> or '*' for all buckets
+					
 		"""
 		files_path=""
 		redis_key = ""
 		match source:
 			case 's3':
-				logging.debug(" *** Source is a s3.")
-				s3_re = self.__s3_connect__()
-				for bucket in s3_re.buckets.all():
-					bucket = s3_re.Bucket(bucket.name)
-					for obj in bucket.objects.all():
-						logging.debug(f" *** {obj.key} {obj.last_modified}")
-						redis_key = f"{source}:{location}"
-						self.redis_db.sadd(redis_key, obj.key)
+				logging.debug(" *** save_files_list_in_redis() => Source is a s3.")
+				s3_so = self.__s3_connect__()
+				if location == '*':
+					for bucket in s3_so.buckets.all():
+						self.__make_redis_list__(bucket)
+				else:
+					bucket = s3_so.Bucket(location)
+					self.__make_redis_list__(bucket)
 
 			case 'local':
-				logging.debug(" *** Source is a local.")
+				logging.debug(" *** save_files_list_in_redis() => Source is a local.")
 				if Path(location).is_dir() and Path(location).exists:
-					logging.debug(" *** Location is a directory.")
+					logging.debug(" *** save_files_list_in_redis() => Location is a directory.")
 					root_path = location.split(os. sep)[-1]
 					files_path = root_path
 					for folderName, subfolders, filenames in os.walk(location):	
-						logging.debug(' *** 1 ----------------------------------------------------')		
-						logging.debug(' *** The folderName folder is ' + folderName)
-						logging.debug(' *** The folderName.split(os. sep)[-1] folder is ' + folderName.split(os. sep)[-1])	
-						logging.debug(' *** The files_path folder is ' + files_path)	
-						logging.debug(' *** The files_path.split(os. sep)[-1] folder is ' + files_path.split(os. sep)[-1])
-						logging.debug(' *** 2 ----------------------------------------------------')		
+						logging.debug(' *** save_files_...() => 1 ----------------------------------------------------')		
+						logging.debug(' *** save_files_...() => The folderName folder is ' + folderName)
+						logging.debug(' *** save_files_...() => The folderName.split(os. sep)[-1] folder is ' + folderName.split(os. sep)[-1])	
+						logging.debug(' *** save_files_...() => The files_path folder is ' + files_path)	
+						logging.debug(' *** save_files_...() => The files_path.split(os. sep)[-1] folder is ' + files_path.split(os. sep)[-1])
+						logging.debug(' *** save_files_...() => 2 ----------------------------------------------------')		
 						if not folderName.split(os. sep)[-1] == files_path: 
-							logging.debug(' *** The folderName.split(os. sep)[-2] folder is ' + folderName.split(os. sep)[-2])	
+							logging.debug(' *** save_files_...() => The folderName.split(os. sep)[-2] folder is ' + folderName.split(os. sep)[-2])	
 							if folderName.split(os. sep)[-2] == files_path.split(os. sep)[-1]:	
 								parent_path = files_path			
 								files_path += f"/{folderName.split(os. sep)[-1]}"
-								logging.debug(' *** if   : The current files_path is ' + files_path)
+								logging.debug(' *** save_files_...() => if   : The current files_path is ' + files_path)
 							elif folderName.split(os. sep)[-2] == files_path.split(os. sep)[-2]:				
 								files_path = f"{parent_path}/{folderName.split(os. sep)[-1]}"
-								logging.debug(' *** elif 1: The current files_path is ' + files_path)
+								logging.debug(' *** save_files_...() => elif 1: The current files_path is ' + files_path)
 							elif folderName.split(os. sep)[-2] == root_path:
 								files_path = f"{root_path}/{folderName.split(os. sep)[-1]}"
-								logging.debug(' *** elif 2: The current files_path is ' + files_path)						
+								logging.debug(' *** save_files_...() => elif 2: The current files_path is ' + files_path)						
 
 						for filename in filenames:
-							logging.debug(' *** FILE INSIDE ' + files_path + ': '+ filename)
+							logging.debug(' *** save_files_...() => FILE INSIDE ' + files_path + ': '+ filename)
 							file_path = f"{files_path}/{filename}"
 							# self.redis_db.rpush(root_path, file_path)
 							# redis_key = f"{source}:{root_path}"
 							redis_key = f"{source}:{location}"
 							self.redis_db.sadd(redis_key, file_path)
-					logging.debug(f" *** {self.redis_db.keys()}")
+					logging.debug(f" *** save_files_...() => {self.redis_db.keys()}")					
+					print(f"List of files created in '{redis_key}' redis key successfuly.")
 				else:
 					print("location is not directory or not exist.")
 					exit(1)
@@ -159,10 +170,10 @@ class SafeBackup:
 
 	def download_files_list_from_redis(self, redis_key, destination, workers):
 		source=redis_key.split(':')
-		logging.debug(f" *** {source}")
+		logging.debug(f" *** download_files_...()=> {source}")
 		for member in self.redis_db.sscan(redis_key,0)[1]:
 			if not destination.startswith('s3:'):
-				logging.debug(f"*** {Path(source[1]).parent}/{member.decode('UTF-8')} \
+				logging.debug(f"*** download_files_...()=> {Path(source[1]).parent}/{member.decode('UTF-8')} \
 					--> {destination}/{member.decode('UTF-8')}")
 				parent = Path(f"{destination}/{member.decode('UTF-8')}").parent
 				if not os.path.exists(parent):
@@ -264,13 +275,13 @@ def main():
 	group.add_argument('-l', nargs=2, metavar=('<SOURCE_TYPE>',
 				'<SOURCE_ADDRESS>'), 
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
-				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
+				and [ <SOURCE_DIRECTORY> | [ <BUCKET_NAME> | \'*\' ] ] \
 				to create list of source files in Redis')
 	group.add_argument('-c', nargs=5, metavar=('<SOURCE_TYPE>',
 				'<SOURCE_ADDRESS>', '<DEST_DIRECTORY>', '<REDIS_KEY>', 
 				'<NUMBER_OF_WORKERS>'),
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
-				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
+				and [ <SOURCE_DIRECTORY> | [ <BUCKET_NAME> | \'*\' ] ] \
 				then copy source files to destination')
 	group.add_argument('-d', nargs=3, metavar=('<REDIS_KEY>', 
 				'<DEST>', '<NUMBER_OF_WORKERS>'),
@@ -278,10 +289,10 @@ def main():
 				<DEST> which can be a <Directory> or s3:<bucket_name>')	
 	
 	args = parser.parse_args()
-	logging.debug(f" *** {args}")	
-	logging.debug(f" *** {args.l}")
-	logging.debug(f" *** {args.c}")
-	logging.debug(f" *** {args.d}")
+	logging.debug(f"main() *** {args}")	
+	logging.debug(f"main() *** {args.l}")
+	logging.debug(f"main() *** {args.c}")
+	logging.debug(f"main() *** {args.d}")
 	
 	safe_backup = SafeBackup()
 	
@@ -290,8 +301,7 @@ def main():
 			parser.error(f"<SOURCE_TYPE> must be one of 'local' or 's3'")
 		if args.l[0]=='local' and not Path(args.l[1]).is_dir():
 			parser.error(f"<SOURCE_ADDRESS>='{args.l[1]}' is not directory or not exist!")
-		result = safe_backup.save_files_list_in_redis(args.l[0],args.l[1])
-		print(f"List of files created in '{result}' redis key successfuly.")
+		safe_backup.save_files_list_in_redis(args.l[0],args.l[1])
 	elif args.c:
 		if not args.c[0]=='local' and not args.c[0]=='s3':
 			parser.error(f"<SOURCE_TYPE> must be one of 'local' or 's3'")
