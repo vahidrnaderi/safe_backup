@@ -97,8 +97,42 @@ class SafeBackup:
 		for obj in bucket.objects.all():
 			logging.debug(f" *** save_files_list_in_redis() => {obj}")
 			logging.debug(f" *** save_files_list_in_redis() => {obj.last_modified}")
-			self.redis_db.sadd(redis_key, obj.key")
+			self.redis_db.sadd(redis_key, obj.key)
 		print(f"List of files created in '{redis_key}' redis key successfuly.")
+	
+		
+	def __make_redis_list_from_pages__(self, redis_key, page_contetnts):		
+		for content in page_contetnts:
+			logging.debug(content['Key'])
+			self.redis_db.sadd(redis_key, content['Key'])
+	
+	def __s3_list_paginator__(self, bucket, page_items=1, max_items=None, first_marker=''):	
+		# Create a client
+		s3_so = self.__s3_connect__().meta.client
+		
+		# Create a reusable Paginator
+		paginator = s3_so.get_paginator('list_objects')
+		
+		# Create and Customizing page iterators
+		page_iterator = paginator.paginate(Bucket = bucket.name,
+										   PaginationConfig={'PageSize': page_items,
+															 'StartingToken': first_marker,
+															 'MaxItems': max_items
+														   }                                   
+										   )
+				
+		redis_key = f"s3:{bucket.name}"
+		
+		for page in page_iterator:
+			# print(f" ****************\n {page}\n ############ \n")
+			logging.debug(f" **** Marker ************ {page['Marker']}")
+			if page['IsTruncated']:
+				logging.debug(f" **** NextMarker ******** {page['NextMarker']}")
+			else:
+				logging.debug(f" **** NextMarker ******** ")
+				
+			if 'Contents' in list(page.keys()):
+				self.__make_redis_list_from_pages__(redis_key, page['Contents'])
 	
 	def save_files_list_in_redis(self, source, location):
 		"""
@@ -120,10 +154,12 @@ class SafeBackup:
 				s3_so = self.__s3_connect__()
 				if location == '*':
 					for bucket in s3_so.buckets.all():
-						self.__make_redis_list__(bucket)
+						# self.__make_redis_list__(bucket)
+						self.__s3_list_paginator__(bucket)
 				else:
 					bucket = s3_so.Bucket(location)
-					self.__make_redis_list__(bucket)
+					# self.__make_redis_list__(bucket)
+					self.__s3_list_paginator__(bucket)
 
 			case 'local':
 				logging.debug(" *** save_files_list_in_redis() => Source is a local.")
