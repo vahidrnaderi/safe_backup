@@ -26,6 +26,7 @@ from pathlib import Path
 import redis
 import argparse
 from multiprocessing import Pool
+# import time
 
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - \
@@ -37,6 +38,10 @@ class SafeBackup:
 	__region_dest = None
 	
 	def __s3_connect__(self, destination='source'):
+		"""
+		Connect to a given destination bucket and return a resource.
+		"""
+		
 		if destination=='source':
 			AWS_DEFAULT_REGION = os.environ['AWS_DEFAULT_REGION']
 			AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
@@ -55,6 +60,7 @@ class SafeBackup:
 		else:
 			print(f"The s3 destination={destination} is not defined.")
 			exit(1)
+			
 		session = boto3.session.Session(
 			aws_access_key_id=AWS_ACCESS_KEY_ID, 
 			aws_secret_access_key=AWS_SECRET_ACCESS_KEY, 
@@ -69,7 +75,8 @@ class SafeBackup:
 		)
 		
 	def __create_bucket__(self, s3_client, bucket_name, region=None):
-		"""Create an S3 bucket in a specified region
+		"""
+		Create an S3 bucket in a specified region
 
 		If a region is not specified, the bucket is created in the S3 default
 		region (us-east-1).
@@ -129,8 +136,19 @@ class SafeBackup:
 				logging.debug(f" **** NextMarker ******** ")
 				
 			if 'Contents' in list(page.keys()):
-				# self.__make_redis_list_from_pages__(redis_key, page['Contents'])
+				if page['Marker']=='':
+					marker = '-'					
+					self.redis_db.sadd(f"{redis_key}:marker", marker)
+				else:
+					last_marker = marker					
+					marker = page['Marker']	
+					self.redis_db.sadd(f"{redis_key}:marker", marker)				
+					self.redis_db.srem(f"{redis_key}:marker", last_marker)
 				self.__pooled__(redis_key, page['Contents'])
+				# time.sleep(20)
+		else:
+			self.redis_db.spop(f"{redis_key}:marker")
+			# source=redis_key.split(':')
 	
 	def save_files_list_in_redis(self, source, location):
 		"""
