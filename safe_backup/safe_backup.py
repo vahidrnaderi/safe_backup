@@ -34,6 +34,7 @@ logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - \
 
 
 class SafeBackup:
+	
 	redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
 	__region_dest = None
 	
@@ -168,12 +169,8 @@ class SafeBackup:
 			case 's3':
 				logging.debug(" *** save_files_list_in_redis() => Source is a s3.")
 				s3_so = self.__s3_connect__()
-				if location == '*':
-					for bucket in s3_so.buckets.all():
-						self.__s3_list_paginator__(bucket)
-				else:
-					bucket = s3_so.Bucket(location)
-					self.__s3_list_paginator__(bucket)
+				bucket = s3_so.Bucket(location)
+				self.__s3_list_paginator__(bucket)
 
 			case 'local':
 				logging.debug(" *** save_files_list_in_redis() => Source is a local.")
@@ -325,7 +322,7 @@ def main():
 	group.add_argument('-l', nargs=2, metavar=('<SOURCE_TYPE>',
 				'<SOURCE_ADDRESS>'), 
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
-				and [ <SOURCE_DIRECTORY> | [ <BUCKET_NAME> | \'*\' ] ] \
+				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
 				to create list of source files in Redis')
 	group.add_argument('-c', nargs=5, metavar=('<SOURCE_TYPE>',
 				'<SOURCE_ADDRESS>', '<DEST_DIRECTORY>', '<REDIS_KEY>', 
@@ -351,7 +348,10 @@ def main():
 			parser.error(f"<SOURCE_TYPE> must be one of 'local' or 's3'")
 		if args.l[0]=='local' and not Path(args.l[1]).is_dir():
 			parser.error(f"<SOURCE_ADDRESS>='{args.l[1]}' is not directory or not exist!")
+		
+		"Make list of source files to Redis"	
 		safe_backup.save_files_list_in_redis(args.l[0],args.l[1])
+		
 	elif args.c:
 		if not args.c[0]=='local' and not args.c[0]=='s3':
 			parser.error(f"<SOURCE_TYPE> must be one of 'local' or 's3'")
@@ -361,6 +361,9 @@ def main():
 		if not Path(args.c[2]).is_dir():
 			parser.error(f"<DEST_DIRECTORY>='{args.c[2]}' is not \
 			directory or not exist!")
+			
+		"All copy functions must write down here"
+		
 	elif args.d:
 		if not safe_backup.redis_db.exists(args.d[0])==1:
 			parser.error(f"<REDIS_KEY>='{args.d[0]}' is not exists!")
@@ -373,7 +376,10 @@ def main():
 		if not args.d[2].isdigit() or int(args.d[2])<=0:
 			parser.error(f"<NUMBER_OF_WORKERS>='{args.d[2]}' is not \
 			integer or not bigger than 0!")
+			
+		"Download or copy source files list that we made before in Redis"
 		safe_backup.download_files_list_from_redis(args.d[0], args.d[1], args.d[2])
+		
 	else:
 		parser.error(f"Input args='{args}' is not defined!")
 		
