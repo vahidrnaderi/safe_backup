@@ -26,7 +26,6 @@ from pathlib import Path
 import redis
 import argparse
 from multiprocessing import Pool
-# import time
 
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - \
@@ -37,6 +36,28 @@ class SafeBackup:
 	
 	redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
 	__region_dest = None
+	
+	def __init__(self, args):
+		"""
+		Checking for intruption and continue the last command.
+		"""
+		logging.debug(f" **************** {args} ############ ")
+		redis_keys = self.redis_db.scan(0, f"*:marker")[1]
+		for key in redis_keys:
+			logging.debug(f" **************** {key.decode('UTF-8')} ############ ")
+			command = key.decode('UTF-8').split(':')[2].split('__')				
+			logging.debug(f" **************** {command} ############ ")
+			self.save_files_list_in_redis('l', command[1], command[2])
+			
+		redis_keys = self.redis_db.scan(0, f"*-working1")[1]
+		for key in redis_keys:
+			logging.debug(f" **************** {key.decode('UTF-8')} ############ ")
+			keys = key.decode('UTF-8').split('-')	
+			command = keys[1].split('__')		
+			logging.debug(f" **************** {keys} + {command} ############ ")
+			self.download_files_list_from_redis('d', keys[0], command[1], command[2])
+			
+		"Write down intrution checking for -c here"	
 	
 	def __s3_connect__(self, destination='source'):
 		"""
@@ -111,7 +132,7 @@ class SafeBackup:
 			args = [[redis_key, page_contents],]
 			pool.map(self.__make_redis_list_from_pages__, args)	
 	
-	def __s3_list_paginator__(self, bucket, page_items=1, max_items=None, first_marker=''):	
+	def __s3_list_paginator__(self, bucket, command_key, page_items=1, max_items=None, first_marker=''):	
 		# Create a client
 		s3_so = self.__s3_connect__().meta.client
 		
@@ -137,21 +158,12 @@ class SafeBackup:
 				logging.debug(f" **** NextMarker ******** ")
 				
 			if 'Contents' in list(page.keys()):
-				if page['Marker']=='':
-					marker = '-'					
-					self.redis_db.sadd(f"{redis_key}:marker", marker)
-				else:
-					last_marker = marker					
-					marker = page['Marker']	
-					self.redis_db.sadd(f"{redis_key}:marker", marker)				
-					self.redis_db.srem(f"{redis_key}:marker", last_marker)
+				self.redis_db.set(f"{redis_key}:{command_key}:marker", page['Marker'])	
 				self.__pooled__(redis_key, page['Contents'])
-				# time.sleep(20)
 		else:
-			self.redis_db.spop(f"{redis_key}:marker")
-			# source=redis_key.split(':')
+			self.redis_db.getdel(f"{redis_key}:{command_key}:marker")
 	
-	def save_files_list_in_redis(self, source, location):
+	def save_files_list_in_redis(self, option, source, location):
 		"""
 			Make a list from source and save it in redis.
 			source must be one of 'local' or 's3'
@@ -170,7 +182,7 @@ class SafeBackup:
 				logging.debug(" *** save_files_list_in_redis() => Source is a s3.")
 				s3_so = self.__s3_connect__()
 				bucket = s3_so.Bucket(location)
-				self.__s3_list_paginator__(bucket)
+				self.__s3_list_paginator__(bucket, f"{option}__{source}__{location}")
 
 			case 'local':
 				logging.debug(" *** save_files_list_in_redis() => Source is a local.")
@@ -215,26 +227,27 @@ class SafeBackup:
 		return redis_key
 
 
-	def download_files_list_from_redis(self, redis_key, destination, workers):
+	def download_files_list_from_redis(self, option, redis_key, destination, workers):
 		source=redis_key.split(':')
 		logging.debug(f" *** download_files_...()=> {source}")
 		for member in self.redis_db.sscan(redis_key,0)[1]:
+			self.redis_db.set(f"{redis_key}-{option}__{destination}__{workers}-working1", member)
 			if not destination.startswith('s3:'):
 				logging.debug(f"*** download_files_...()=> {Path(source[1]).parent}/{member.decode('UTF-8')} \
 					--> {destination}/{member.decode('UTF-8')}")
 				parent = Path(f"{destination}/{member.decode('UTF-8')}").parent
 				if not os.path.exists(parent):
 					os.makedirs(parent)
-				self.redis_db.smove(redis_key, f"{redis_key}-working", member)
+				self.redis_db.smove(redis_key, f"{redis_key}-{option}__{destination}__{workers}-working", member)
 				match source[0]:
 					case 'local':				
 						try:
 							shutil.copy2(f"{Path(source[1]).parent}/{member.decode('UTF-8')}", 
 								f"{destination}/{member.decode('UTF-8')}")
-							self.redis_db.srem(f"{redis_key}-working", member)
+							self.redis_db.srem(f"{redis_key}-{option}__{destination}__{workers}-working", member)
 						except Exception as e:
 							print(f"There was an error: {e}")
-							self.redis_db.smove(f"{redis_key}-working",
+							self.redis_db.smove(f"{redis_key}-{option}__{destination}__{workers}-working",
 												redis_key, member)
 					case 's3':
 						s3_source = self.__s3_connect__().meta.client
@@ -242,10 +255,11 @@ class SafeBackup:
 							s3_source.download_file(source[1],
 								member.decode('UTF-8'),
 								f"{destination}/{member.decode('UTF-8')}")
-							self.redis_db.srem(f"{redis_key}-working", member)
+							self.redis_db.srem(f"{redis_key}-{option}__{destination}__{workers}-working", member)
+							# time.sleep(5)
 						except Exception as e:
 							print(f"There was an error: {e}")
-							self.redis_db.smove(f"{redis_key}-working",
+							self.redis_db.smove(f"{redis_key}-{option}__{destination}__{workers}-working",
 										redis_key, member)
 							
 			elif redis_key.startswith('s3:') and destination.startswith('s3:'):
@@ -254,7 +268,7 @@ class SafeBackup:
 				parent = Path(f"./{destination}/{member.decode('UTF-8')}").parent
 				if not os.path.exists(parent):
 					os.makedirs(parent)
-				self.redis_db.smove(redis_key, f"{redis_key}-working", member)
+				self.redis_db.smove(redis_key, f"{redis_key}-{option}__{destination}__{workers}-working", member)
 				
 				# download from s3 source
 				s3_source = self.__s3_connect__().meta.client
@@ -266,7 +280,7 @@ class SafeBackup:
 						f"./{destination}/{member.decode('UTF-8')}")
 				except Exception as e:
 					print(f" There was an error: {e}")
-					self.redis_db.smove(f"{redis_key}-working",
+					self.redis_db.smove(f"{redis_key}-{option}__{destination}__{workers}-working",
 						redis_key, member)				
 				logging.debug(f" *** l-207")
 				
@@ -287,10 +301,10 @@ class SafeBackup:
 							logging.debug(f" *** l-222")
 							s3_dest.upload_file(f"./{destination}/{member.decode('UTF-8')}",
 								s3_dest_bucket, member.decode('UTF-8'))
-							self.redis_db.srem(f"{redis_key}-working", member)
+							self.redis_db.srem(f"{redis_key}-{option}__{destination}__{workers}-working", member)
 						except ClientError as e:
 							print(f" There was an error: {e}")
-							self.redis_db.smove(f"{redis_key}-working",
+							self.redis_db.smove(f"{redis_key}-{option}__{destination}__{workers}-working",
 								redis_key, member)
 						else:
 							path = Path(f"./{destination}/{member.decode('UTF-8')}")
@@ -306,7 +320,9 @@ class SafeBackup:
 			else:
 				print(" There was a problem for copy s3 to s3!")	
 				exit(2)	
-		
+		else:
+			self.redis_db.getdel(f"{redis_key}-{option}__{destination}__{workers}-working1")
+			
 		if destination.startswith('s3:'):	
 			shutil.rmtree(Path(f"./{destination}"))			
 
@@ -328,7 +344,7 @@ def main():
 				'<SOURCE_ADDRESS>', '<DEST_DIRECTORY>', '<REDIS_KEY>', 
 				'<NUMBER_OF_WORKERS>'),
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
-				and [ <SOURCE_DIRECTORY> | [ <BUCKET_NAME> | \'*\' ] ] \
+				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
 				then copy source files to destination')
 	group.add_argument('-d', nargs=3, metavar=('<REDIS_KEY>', 
 				'<DEST>', '<NUMBER_OF_WORKERS>'),
@@ -341,7 +357,7 @@ def main():
 	logging.debug(f"main() *** {args.c}")
 	logging.debug(f"main() *** {args.d}")
 	
-	safe_backup = SafeBackup()
+	safe_backup = SafeBackup(args)
 	
 	if args.l:
 		if not args.l[0]=='local' and not args.l[0]=='s3':
@@ -349,8 +365,8 @@ def main():
 		if args.l[0]=='local' and not Path(args.l[1]).is_dir():
 			parser.error(f"<SOURCE_ADDRESS>='{args.l[1]}' is not directory or not exist!")
 		
-		"Make list of source files to Redis"	
-		safe_backup.save_files_list_in_redis(args.l[0],args.l[1])
+		"Make list of source files to Redis"
+		safe_backup.save_files_list_in_redis('l', args.l[0], args.l[1])
 		
 	elif args.c:
 		if not args.c[0]=='local' and not args.c[0]=='s3':
@@ -378,7 +394,7 @@ def main():
 			integer or not bigger than 0!")
 			
 		"Download or copy source files list that we made before in Redis"
-		safe_backup.download_files_list_from_redis(args.d[0], args.d[1], args.d[2])
+		safe_backup.download_files_list_from_redis('d', args.d[0], args.d[1], args.d[2])
 		
 	else:
 		parser.error(f"Input args='{args}' is not defined!")
