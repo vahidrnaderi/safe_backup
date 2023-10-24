@@ -39,20 +39,33 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
 	$ export AWS_ACCESS_KEY_ID = <AWS_ACCESS_KEY_ID>		#MinIO access key
 	$ export AWS_SECRET_ACCESS_KEY = <AWS_SECRET_ACCESS_KEY>	#MinIO secret key
 	$ export AWS_ENDPOINT_URL = <AWS_ENDPOINT_URL>			#for MinIO set to 'http://localhost:9000'
+	
+	$ export DEST_AWS_DEFAULT_REGION = <DEST_AWS_DEFAULT_REGION>		#default None for MinIO
+	$ export DEST_AWS_ACCESS_KEY_ID = <DEST_AWS_ACCESS_KEY_ID>		#MinIO access key
+	$ export DEST_AWS_SECRET_ACCESS_KEY = <DEST_AWS_SECRET_ACCESS_KEY>	#MinIO secret key
+	$ export DEST_AWS_ENDPOINT_URL = <DEST_AWS_ENDPOINT_URL>			#for MinIO set to 'http://localhost:9000'
 
 ## Usage:
 
-	$ python3 safe_backup [-h] [-c <DEST_DIRECTORY>] <SOURCE_TYPE> <SOURCE_ADDRESS>
+	$ python3 safe_backup [-h] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
+								-c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST_DIRECTORY> <REDIS_KEY> <NUMBER_OF_WORKERS> | 
+								-d <REDIS_KEY> <DEST> <NUMBER_OF_WORKERS>
+							   )
 
 Backup your local or s3 files safely.
 
-**positional arguments:**
-
-		<SOURCE_TYPE>       get source type ['local' | 's3']
-		<SOURCE_ADDRESS>    get  [<SOURCE_DIRECTORY> | <BUCKET_NAME>] to create list of source files in Redis
 
 **options:**
 
-	  -h, --help           show this help message and exit
-	  -c <DEST_DIRECTORY>  copy source files to destination
+	-h, --help			show this help message and exit
+	
+	-l <SOURCE_TYPE> <SOURCE_ADDRESS>
+						get <SOURCE_TYPE> as ['local' | 's3'] and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] to create list of source files in Redis
+						
+	-c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST_DIRECTORY> <REDIS_KEY> <NUMBER_OF_WORKERS>
+                        get <SOURCE_TYPE> as ['local' | 's3'] and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] then copy source files to destination
+                        
+	-d <REDIS_KEY> <DEST> <NUMBER_OF_WORKERS>
+                        read Redis and download source files safety to <DEST> which can be a <Directory> or s3:<bucket_name>
+
 ___
