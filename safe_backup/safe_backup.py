@@ -26,6 +26,7 @@ from pathlib import Path
 import redis
 import argparse
 from multiprocessing import Pool
+import functools
 
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - \
@@ -36,11 +37,32 @@ class SafeBackup:
 	
 	redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
 	__region_dest = None
+
+	def debug(func):
+		"""Print the function signature and return value"""
+		@functools.wraps(func)
+		def wrapper_debug(*args, **kwargs):
+			args_repr = [repr(a) for a in args]                      # 1
+			kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]  # 2
+			signature = ", ".join(args_repr + kwargs_repr)           # 3
+			
+			# Do something before
+			logging.debug(f"------ Calling {func.__name__}({signature})")
+			
+			value = func(*args, **kwargs)
+			
+			# Do something after
+			logging.debug(f"------ End of {func.__name__!r} returned {value!r}")           # 4
+			
+			return value
+		return wrapper_debug
 	
+	@debug	
 	def __init__(self, args):
 		"""
 		Checking for intruption and continue the last command.
 		"""
+
 		logging.debug(f" **************** {args} ############ ")
 		redis_keys = self.redis_db.scan(0, f"*:marker")[1]
 		for key in redis_keys:
@@ -58,7 +80,8 @@ class SafeBackup:
 			self.download_files_list_from_redis('d', keys[0], command[1], command[2])
 			
 		"Write down intrution checking for -c here"	
-	
+
+	@debug	
 	def __s3_connect__(self, destination='source'):
 		"""
 		Connect to a given destination bucket and return a resource.
@@ -96,6 +119,7 @@ class SafeBackup:
 			verify=False
 		)
 		
+	@debug	
 	def __create_bucket__(self, s3_client, bucket_name, region=None):
 		"""
 		Create an S3 bucket in a specified region
@@ -123,15 +147,18 @@ class SafeBackup:
 			return False
 		return True
 		
+	@debug	
 	def __make_redis_list_from_pages__(self, args):	
 		logging.debug(args[1][0]['Key'])
 		self.redis_db.sadd(args[0], args[1][0]['Key'])
 
+	@debug	
 	def __pooled__(self, redis_key, page_contents):
 		with Pool() as pool:
 			args = [[redis_key, page_contents],]
 			pool.map(self.__make_redis_list_from_pages__, args)	
 	
+	@debug	
 	def __s3_list_paginator__(self, bucket, command_key, page_items=1, max_items=None, first_marker=''):	
 		# Create a client
 		s3_so = self.__s3_connect__().meta.client
@@ -163,6 +190,7 @@ class SafeBackup:
 		else:
 			self.redis_db.getdel(f"{redis_key}:{command_key}:marker")
 	
+	@debug	
 	def save_files_list_in_redis(self, option, source, location):
 		"""
 			Make a list from source and save it in redis.
@@ -227,6 +255,7 @@ class SafeBackup:
 		return redis_key
 
 
+	@debug	
 	def download_files_list_from_redis(self, option, redis_key, destination, workers):
 		source=redis_key.split(':')
 		logging.debug(f" *** download_files_...()=> {source}")
