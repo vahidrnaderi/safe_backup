@@ -64,13 +64,19 @@ class SafeBackup:
 		Checking for intruption and continue the last command.
 		"""
 
-		logging.debug(f" **************** {args} ############ ")
+		logging.debug(f" **************** args = {args} ############ ")
 		redis_keys = self.redis_db.scan(0, f"*:marker")[1]
 		for key in redis_keys:
-			logging.debug(f" **************** {key.decode('UTF-8')} ############ ")
-			command = key.decode('UTF-8').split(':')[2].split('__')				
-			logging.debug(f" **************** {command} ############ ")
-			self.save_files_list_in_redis('l', command[1], command[2])
+			logging.debug(f" **************** key = {key.decode('UTF-8')} ############ ")
+			commands = key.decode('UTF-8').split(':')			
+			command_array = commands[2].split('__')				
+			logging.debug(f" **************** commands = {commands} ############ ")
+			logging.debug(f" **************** command_array = {command_array} ############ ")
+			if command_array[0] == 'l':
+				self.save_files_list_in_redis('l', command_array[1], command_array[2], intruption=True, first_marker=self.redis_db.get(key).decode('UTF-8'))
+			elif command_array[0] == 'c':
+				self.save_files_list_in_redis('c', command_array[1], command_array[2], commands[2], intruption=True, first_marker=self.redis_db.get(key).decode('UTF-8'))
+				self.download_files_list_from_redis('d', f"{commands[0]}:{commands[1]}", command_array[3], command_array[4])
 			
 		redis_keys = self.redis_db.scan(0, f"*-working1")[1]
 		for key in redis_keys:
@@ -79,9 +85,7 @@ class SafeBackup:
 			command = keys[1].split('__')		
 			logging.debug(f" **************** {keys} + {command} ############ ")
 			self.download_files_list_from_redis('d', keys[0], command[1], command[2])
-			
-		"Write down intrution checking for -c here"	
-
+		
 	@debug	
 	def __s3_connect__(self, destination='source'):
 		"""
@@ -189,6 +193,8 @@ class SafeBackup:
 				time.sleep(5)
 		else:
 			self.redis_db.getdel(f"{redis_key}:{command_key}:marker")
+		
+		return redis_key
 
 	@debug
 	def bucket_exists(self, bucket_name):
@@ -204,10 +210,10 @@ class SafeBackup:
 			if error_code == '404':	
 				return False, f"<BUCKET_NAME>='{bucket_name}' is not exists!"
 			else:	
-				return False, f"Something went wrong in s3:<BUCKET_NAME>='{bucket_name}'! Error is {e}"	
+				return False, f"Something went wrong in s3:<BUCKET_NAME>='{bucket_name}'! Error is \"{e}\""	
 	
 	@debug	
-	def save_files_list_in_redis(self, option, source, location):
+	def save_files_list_in_redis(self, option, source, location, command_key="", intruption=False, first_marker=None):
 		"""
 			Make a list from source and save it in redis.
 			source must be one of 'local' or 's3'
@@ -226,7 +232,16 @@ class SafeBackup:
 				logging.debug(" *** save_files_list_in_redis() => Source is a s3.")
 				s3_so = self.__s3_connect__()
 				bucket = s3_so.Bucket(location)
-				self.__s3_list_paginator__(bucket, f"{option}__{source}__{location}")
+				if not intruption:
+					if option == 'l':
+						redis_key = self.__s3_list_paginator__(bucket, f"{option}__{source}__{location}")
+					elif option == 'c':
+						redis_key = self.__s3_list_paginator__(bucket, command_key)
+				else:
+					if option == 'l':
+						redis_key = self.__s3_list_paginator__(bucket, f"{option}__{source}__{location}", first_marker=first_marker)
+					elif option == 'c':
+						redis_key = self.__s3_list_paginator__(bucket, command_key, first_marker=first_marker)
 
 			case 'local':
 				logging.debug(" *** save_files_list_in_redis() => Source is a local.")
@@ -366,7 +381,20 @@ class SafeBackup:
 		if destination.startswith('s3:'):	
 			shutil.rmtree(Path(f"./{destination}"))			
 
-
+	@debug	
+	def copy_files(self, option, source, location, destination, workers):
+		"""
+		Make a list of files in redis and then start copying or 
+		downloading files to the destination.
+		"""
+		
+		command_key = f"{option}__{source}__{location}__{destination}__{workers}"
+				
+		"Make list of source files to Redis"
+		redis_key = self.save_files_list_in_redis(option, source, location, command_key)		
+			
+		"Download or copy source files list that we made before in Redis"
+		self.download_files_list_from_redis('d', redis_key, destination, workers)
 
 def main():
 	parser = argparse.ArgumentParser(
@@ -380,9 +408,8 @@ def main():
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
 				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
 				to create list of source files in Redis')
-	group.add_argument('-c', nargs=5, metavar=('<SOURCE_TYPE>',
-				'<SOURCE_ADDRESS>', '<DEST_DIRECTORY>', '<REDIS_KEY>', 
-				'<NUMBER_OF_WORKERS>'),
+	group.add_argument('-c', nargs=4, metavar=('<SOURCE_TYPE>',
+				'<SOURCE_ADDRESS>', '<DEST_DIRECTORY>', '<NUMBER_OF_WORKERS>'),
 				help= 'get <SOURCE_TYPE> as [\'local\' | \'s3\'] \
 				and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
 				then copy source files to destination')
@@ -417,16 +444,20 @@ def main():
 			parser.error(f"<SOURCE_TYPE> must be one of 'local' or 's3'")
 		if args.c[0]=='local' and not Path(args.c[1]).is_dir():
 			parser.error(f"<SOURCE_ADDRESS>='{args.c[1]}' is not \
-			directory or not exist!")		
-		if args.l[0]=='s3':
-			result, msg = safe_backup.bucket_exists(args.l[1])
+directory or not exist!")		
+		if args.c[0]=='s3':
+			result, msg = safe_backup.bucket_exists(args.c[1])
 			if not result:
 				parser.error(msg)
 		if not Path(args.c[2]).is_dir():
 			parser.error(f"<DEST_DIRECTORY>='{args.c[2]}' is not \
-			directory or not exist!")
+directory or not exist!")		
+		if not args.c[3].isdigit() or int(args.c[3])<=0:
+			parser.error(f"<NUMBER_OF_WORKERS>='{args.c[2]}' is not \
+integer or not bigger than 0!")
 			
 		"All copy functions must write down here"
+		safe_backup.copy_files('c', args.c[0], args.c[1], args.c[2], args.c[3])
 		
 	elif args.d:
 		if not safe_backup.redis_db.exists(args.d[0])==1:
@@ -434,12 +465,12 @@ def main():
 		if not args.d[1].startswith('s3:'):
 			if not Path(args.d[1]).is_dir():
 				parser.error(f"<DEST>='{args.d[1]}' is not directory \
-				or not started with 's3:'!")
+or not started with 's3:'!")
 		elif not len(args.d[1])>3:
 			parser.error(f"You must define the <bucket_name> after 's3:'!")
 		if not args.d[2].isdigit() or int(args.d[2])<=0:
 			parser.error(f"<NUMBER_OF_WORKERS>='{args.d[2]}' is not \
-			integer or not bigger than 0!")
+integer or not bigger than 0!")
 			
 		"Download or copy source files list that we made before in Redis"
 		safe_backup.download_files_list_from_redis('d', args.d[0], args.d[1], args.d[2])
