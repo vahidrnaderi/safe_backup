@@ -30,18 +30,14 @@ from multiprocessing import Pool
 import functools
 import urllib.parse
 
-# import time
-
+# Logging levels => NOTSET -> DEBUG -> INFO -> WARNING -> ERROR -> CRITICAL
 logging.basicConfig(
     level=logging.DEBUG,
     format=" %(asctime)s -  %(levelname)s -  %(message)s",
 )
 
-# logging.disable(logging.CRITICAL)  # Stop logging
-
-# NOTSET -> DEBUG -> INFO -> WARNING -> ERROR -> CRITICAL
-# logging.disable(logging.NOTSET)    # Start logging
-
+# Start/Stop logging with commenting/uncommenting next line
+logging.disable(logging.CRITICAL)
 
 def debug(func):
     """Print the function signature and return value"""
@@ -276,7 +272,6 @@ class SafeBackup:
                     page["Marker"],
                 )
                 self.__pooled__(redis_key, page["Contents"])
-                # time.sleep(5)
         else:
             self.redis_db.getdel(f"{redis_key}:{command_key}:marker")
 
@@ -444,7 +439,6 @@ class SafeBackup:
                             file_path = f"{files_path}/{filename}"
                             redis_key = f"{source}:{location}"
                             self.redis_db.sadd(redis_key, file_path)
-                        # time.sleep(5)
                     logging.debug(
                         f" *** save_files_...() \
                     => {self.redis_db.keys()}"
@@ -569,7 +563,6 @@ class SafeBackup:
             else:
                 print(" There was a problem for copy s3 to s3!")
                 exit(2)
-            # time.sleep(10)
             self.redis_db.srem(redis_key, member)
         else:
             self.redis_db.delete(f"{redis_key_worker}-working1")
@@ -681,11 +674,6 @@ def main():
                 )
         elif not len(args.c[2]) > 3:
             parser.error("You must define the <bucket_name> after 's3:'!")
-        # if not Path(args.c[2]).is_dir():
-        # parser.error(
-        # f"<DEST_DIRECTORY>='{args.c[2]}' \
-        # is not directory or not exist!"
-        # )
         if not args.c[3].isdigit() or int(args.c[3]) <= 0:
             parser.error(
                 f"<NUMBER_OF_WORKERS>='{args.c[2]}' \
