@@ -613,16 +613,17 @@ def main():
             "<DEST>",
             "<NUMBER_OF_WORKERS>",
         ),
-        help="get <SOURCE_TYPE> as ['local' | 's3'] and \
-        [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
-        then copy source files to destination",
+        help="get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as \
+        [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] and \
+        get <DEST> as [ <LOCAL_DIRECTORY> | s3:<BUCKET_NAME> ] \
+        to copy source files to destination",
     )
     group.add_argument(
         "-d",
         nargs=3,
         metavar=("<REDIS_KEY>", "<DEST>", "<NUMBER_OF_WORKERS>"),
         help="read Redis and download source files safety to <DEST> \
-        which can be a <Directory> or s3:<bucket_name>",
+        which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
     args = parser.parse_args()
