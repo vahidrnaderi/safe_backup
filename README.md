@@ -1,7 +1,7 @@
 
 # Safe Backup
 
-If you need to copy your files from a location on your local drives or download them from an object storage to your local drive safely, without any concerns about losing files, you can achieve this with safe_backup.
+If you need to copy your files from a location on your local drives or download them from an object storage to your local drive safety, without any concerns about losing files, you can achieve this with safe_backup.
 
 This program creates a secure backup of your files from a specified directory or an object storage location.
 
@@ -55,7 +55,7 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
                                 -d <REDIS_KEY> <DEST> <NUMBER_OF_WORKERS>
                                )
 
-Backup your local or s3 files safely.
+Backup your local or s3 files safety.
 
 
 **options:**
