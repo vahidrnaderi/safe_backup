@@ -37,27 +37,57 @@ logging.basicConfig(
 )
 
 # Start/Stop logging with commenting/uncommenting next line
-logging.disable(logging.CRITICAL)
+# logging.disable(logging.CRITICAL)
+
+def color_log(types, message):
+    colors = {
+        'HEADER': '\033[95m',
+        'OKBLUE': '\033[94m',
+        'OKCYAN': '\033[96m',
+        'OKGREEN': '\033[92m',
+        'WARNING': '\033[93m',
+        'FAIL': '\033[91m',
+        'ENDC': '\033[0m',
+        'BOLD': '\033[1m',
+        'UNDERLINE': '\033[4m',
+    }
+    match types:
+        case "header":
+            logging.debug(f"{colors['HEADER']}{message}{colors['ENDC']}")
+        case "notest":
+            logging.notest(f"{colors['OKGREEN']}{message}{colors['ENDC']}")
+        case "debug":
+            logging.debug(f"{colors['OKCYAN']}{message}{colors['ENDC']}")
+        case "info":
+            logging.info(f"{colors['OKBLUE']}{message}{colors['ENDC']}")
+        case "warning":
+            logging.warning(f"{colors['WARNING']}{message}{colors['ENDC']}")
+        case "error":
+            logging.error(f"{colors['FAIL']}{message}{colors['ENDC']}")
+        case "critical":
+            logging.critical(f"{colors['UNDERLINE']}{message}{colors['ENDC']}")
+        case "bold":
+            logging.bold(f"{colors['BOLD']}{message}{colors['ENDC']}")
+        case "reset":
+            logging.reset(f"{colors['ENDC']}{message}{colors['ENDC']}")
+
 
 def debug(func):
     """Print the function signature and return value"""
 
     @functools.wraps(func)
     def wrapper_debug(*args, **kwargs):
-        args_repr = [repr(a) for a in args]  # 1
-        kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]  # 2
-        signature = ", ".join(args_repr + kwargs_repr)  # 3
+        args_repr = [repr(a) for a in args]
+        kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+        signature = ", ".join(args_repr + kwargs_repr)
 
         # Do something before
-        logging.debug(f"------ Calling {func.__name__}({signature})")
+        color_log('info', f"------ Calling {func.__name__}({signature})")
 
         value = func(*args, **kwargs)
 
         # Do something after
-        logging.debug(
-            f"------ End of {func.__name__!r} \
-            returned {value!r}"
-        )  # 4
+        color_log('info', f"------ End of {func.__name__!r} returned {value!r}")
 
         return value
 
@@ -77,7 +107,7 @@ class SafeBackup:
         urllib.parse.uses_netloc.append("redis")
         url = urllib.parse.urlparse(redis_url)
 
-        logging.debug(
+        color_log('debug', 
             f"------\n \
             {redis_url = }\n \
             {urllib = }\n \
@@ -92,7 +122,7 @@ class SafeBackup:
             db=0,
             decode_responses=REDIS_DECODE_RESPONSE,
         )
-        logging.debug(f"---- {redis_db =}")
+        color_log('debug', f"---- {redis_db =}")
         
         return redis_db
 
@@ -102,14 +132,14 @@ class SafeBackup:
         Checking for intruption and continue the last command.
         """
         self.redis_db = self.db_connect()
-        logging.critical(f" *********** args = {args} ######### ")
+        color_log('debug', f" *********** args = {args} ######### ")
         redis_keys = self.redis_db.scan(0, "*:marker")[1]
         for key in redis_keys:
-            logging.debug(f" *********** key = {key} ######### ")
+            color_log('debug', f" *********** key = {key} ######### ")
             commands = key.split(":")
             command_array = commands[2].split("__")
-            logging.debug(f" *********** commands = {commands} ######### ")
-            logging.debug(
+            color_log('debug', f" *********** commands = {commands} ######### ")
+            color_log('debug', 
                 f" *********** command_array = \
 {command_array} ######### "
             )
@@ -139,10 +169,10 @@ class SafeBackup:
 
         redis_keys = self.redis_db.scan(0, "*-working1")[1]
         for key in redis_keys:
-            logging.debug(f" *********** {key} #########")
+            color_log('debug', f" *********** {key} #########")
             keys = key.split("-")
             command = keys[1].split("__")
-            logging.debug(f" *********** {keys} + {command} ######### ")
+            color_log('debug', f" *********** {keys} + {command} ######### ")
             self.download_files_list_from_redis(
                 "d",
                 keys[0],
@@ -223,7 +253,7 @@ class SafeBackup:
 
     @debug
     def __make_redis_list_from_pages__(self, args):
-        logging.debug(args[1][0]["Key"])
+        color_log('debug', args[1][0]["Key"])
         self.redis_db.sadd(args[0], args[1][0]["Key"])
 
     @debug
@@ -262,15 +292,15 @@ class SafeBackup:
         redis_key = f"s3:{bucket.name}"
 
         for page in page_iterator:
-            logging.debug(f" ****************\n {page}\n ############ \n")
-            logging.debug(f" **** Marker ************ {page['Marker']}")
+            color_log('debug', f" ****************\n {page}\n ############ \n")
+            color_log('debug', f" **** Marker ************ {page['Marker']}")
             if page["IsTruncated"]:
-                logging.debug(
+                color_log('debug', 
                     f" **** NextMarker ******** \
 {page['NextMarker']}"
                 )
             else:
-                logging.debug(" **** NextMarker ******** ")
+                color_log('debug', " **** NextMarker ******** ")
 
             if "Contents" in list(page.keys()):
                 self.redis_db.set(
@@ -327,7 +357,7 @@ class SafeBackup:
         redis_key = ""
         match source:
             case "s3":
-                logging.debug(
+                color_log('debug', 
                     " *** save_files_list_in_redis() \
 => Source is a s3."
                 )
@@ -356,48 +386,48 @@ class SafeBackup:
                         )
 
             case "local":
-                logging.debug(
+                color_log('debug', 
                     " *** save_files_list_in_redis() \
 => Source is a local."
                 )
                 if Path(location).is_dir() and Path(location).exists:
-                    logging.debug(
+                    color_log('debug', 
                         " *** save_files_list_in_redis() => \
 Location is a directory."
                     )
                     root_path = location.split(os.sep)[-1]
                     files_path = root_path
                     for folderName, subfolders, filenames in os.walk(location):
-                        logging.debug(
+                        color_log('debug', 
                             " *** save_files_...() => 1 \
 -----------------------------------------------"
                         )
-                        logging.debug(
+                        color_log('debug', 
                             " *** save_files_...() => \
 The folderName folder is "
                             + folderName
                         )
-                        logging.debug(
+                        color_log('debug', 
                             " *** save_files_...() => \
 The folderName.split(os.sep)[-1] folder is "
                             + folderName.split(os.sep)[-1]
                         )
-                        logging.debug(
+                        color_log('debug', 
                             " *** save_files_...() => \
 The files_path folder is "
                             + files_path
                         )
-                        logging.debug(
+                        color_log('debug', 
                             " *** save_files_...() => \
 The files_path.split(os.sep)[-1] folder is "
                             + files_path.split(os.sep)[-1]
                         )
-                        logging.debug(
+                        color_log('debug', 
                             " *** save_files_...() => \
 2 ----------------------------------------------------"
                         )
                         if not folderName.split(os.sep)[-1] == files_path:
-                            logging.debug(
+                            color_log('debug', 
                                 " *** save_files_...() => \
 The folderName.split(os.sep)[-2] folder is "
                                 + folderName.split(os.sep)[-2]
@@ -409,7 +439,7 @@ The folderName.split(os.sep)[-2] folder is "
                                 parent_path = files_path
                                 f = folderName.split(os.sep)[-1]
                                 files_path += f"/{f}"
-                                logging.debug(
+                                color_log('debug', 
                                     " *** save_files_...() => if : \
 The current files_path is "
                                     + files_path
@@ -420,7 +450,7 @@ The current files_path is "
                             ):
                                 f = folderName.split(os.sep)[-1]
                                 files_path = f"{parent_path}/{f}"
-                                logging.debug(
+                                color_log('debug', 
                                     " *** save_files_...() => \
 elif 1: The current files_path is "
                                     + files_path
@@ -428,14 +458,14 @@ elif 1: The current files_path is "
                             elif folderName.split(os.sep)[-2] == root_path:
                                 f = folderName.split(os.sep)[-1]
                                 files_path = f"{root_path}/{f}"
-                                logging.debug(
+                                color_log('debug', 
                                     " *** save_files_...() => \
 elif 2: The current files_path is "
                                     + files_path
                                 )
 
                         for filename in filenames:
-                            logging.debug(
+                            color_log('debug', 
                                 " *** save_files_...() => FILE INSIDE "
                                 + files_path
                                 + ": "
@@ -444,7 +474,7 @@ elif 2: The current files_path is "
                             file_path = f"{files_path}/{filename}"
                             redis_key = f"{source}:{location}"
                             self.redis_db.sadd(redis_key, file_path)
-                    logging.debug(
+                    color_log('debug', 
                         f" *** save_files_...() \
 => {self.redis_db.keys()}"
                     )
@@ -468,7 +498,7 @@ redis key successfuly."
         workers,
     ):
         source = redis_key.split(":")
-        logging.debug(f" *** download_files_...()=> {source}")
+        color_log('debug', f" *** download_files_...()=> {source}")
         redis_key_worker = f"{redis_key}-{option}__{destination}__{workers}"
         if source[0] == "s3":
             s3_source = self.__s3_connect__().meta.client
@@ -477,7 +507,7 @@ redis key successfuly."
         for member in self.redis_db.sscan(redis_key, 0)[1]:
             self.redis_db.set(f"{redis_key_worker}-working1", member)
             if not destination.startswith("s3:"):
-                logging.debug(
+                color_log('debug', 
                     f"*** if *** download_files_...()=> \
 source = {Path(source[1]).parent}/{member} \
 --> dest = {destination}/{member}"
@@ -506,35 +536,36 @@ source = {Path(source[1]).parent}/{member} \
 
             elif redis_key.startswith("s3:") and destination.startswith("s3:"):
                 s3_dest_bucket = destination.split(":")[1]
-                logging.debug(
+                color_log('debug', 
                     f" *** elif *** {member = } --> \
 dest = s3:{s3_dest_bucket}"
                 )
-                parent = Path(f"./{destination}/{member}").parent
-                if not os.path.exists(parent):
-                    os.makedirs(parent)
+                # parent = Path(f"./{destination}/{member}").parent
+                # if not os.path.exists(parent):
+                    # os.makedirs(parent)
 
-                # download from s3 source
-                logging.debug(
+                # # download from s3 source
+                color_log('debug', 
                     f" *** elif *** {source[1] = } -> ./{destination}/{member}"
                 )
-                try:
-                    s3_source.download_file(
-                        source[1],
-                        member,
-                        f"./{destination}/{member}",
-                    )
-                except Exception as e:
-                    print(f" There was an error: {e}")
+                # try:
+                    # s3_source.download_file(
+                        # source[1],
+                        # member,
+                        # f"./{destination}/{member}",
+                    # )
+                # except Exception as e:
+                    # print(f" There was an error: {e}")
 
-                # upload to s3 destination
+                # # upload to s3 destination
                 try:
-                    logging.debug(
+                    color_log('debug', 
                         f" ** elif ** {s3_dest.list_buckets()['Buckets'] = }"
                     )
                     s3_dest.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
                     # The bucket does not exist or you have no access.
+                    # Create the destination bucket.
                     if not self.__create_bucket__(
                         s3_dest, s3_dest_bucket, self.__region_dest
                     ):
@@ -543,27 +574,38 @@ dest = s3:{s3_dest_bucket}"
 create destination bucket!"
                         )
                         exit(1)
-
-                logging.debug(f" *** elif *** {member = } -> {member = }")
-                if os.path.exists(Path(f"./{destination}/{member}")):
-                    try:
-                        s3_dest.upload_file(
-                            f"./{destination}/{member}",
-                            s3_dest_bucket,
-                            member,
-                        )
-                    except ClientError as e:
+                        
+                s3 = boto3.resource('s3')
+                copy_source = {
+                    'Bucket': source[1],
+                    'Key': member
+                }
+                try:
+                    s3.meta.client.copy(copy_source, s3_dest_bucket, member)
+                except ClientError as e:
                         print(f" There was an error: {e}")
+                        exit(1)
 
-                    path = Path(f"./{destination}/{member}")
-                    A = os.path.exists(path)
-                    if A and not os.path.isfile(path):
-                        if not os.listdir(path):
-                            os.rmdir(path.parent)
-                    elif os.path.isfile(path):
-                        os.unlink(path)
-                else:
-                    print(f" The file ./{destination}/{member} not exists!")
+                # color_log('debug', f" *** elif *** {member = } -> {member = }")
+                # if os.path.exists(Path(f"./{destination}/{member}")):
+                    # try:
+                        # s3_dest.upload_file(
+                            # f"./{destination}/{member}",
+                            # s3_dest_bucket,
+                            # member,
+                        # )
+                    # except ClientError as e:
+                        # print(f" There was an error: {e}")
+
+                    # path = Path(f"./{destination}/{member}")
+                    # A = os.path.exists(path)
+                    # if A and not os.path.isfile(path):
+                        # if not os.listdir(path):
+                            # os.rmdir(path.parent)
+                    # elif os.path.isfile(path):
+                        # os.unlink(path)
+                # else:
+                    # print(f" The file ./{destination}/{member} not exists!")
             else:
                 print(" There was a problem for copy s3 to s3!")
                 exit(2)
@@ -631,10 +673,10 @@ which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
     args = parser.parse_args()
-    logging.debug(f"main() *** {args}")
-    logging.debug(f"main() *** {args.l}")
-    logging.debug(f"main() *** {args.c}")
-    logging.debug(f"main() *** {args.d}")
+    color_log('debug', f"main() *** {args}")
+    color_log('debug', f"main() *** {args.l}")
+    color_log('debug', f"main() *** {args.c}")
+    color_log('debug', f"main() *** {args.d}")
 
     safe_backup = SafeBackup(args)
 
