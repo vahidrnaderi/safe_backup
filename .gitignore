@@ -176,5 +176,5 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 env_variables.txt
-
-
+MinIO-credentials.json
+test_directory_tree/
