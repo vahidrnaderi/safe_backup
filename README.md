@@ -51,8 +51,8 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
 ## Usage:
 
     $ python3 safe_backup [-h] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
-                                -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> <REDIS_KEY> <NUMBER_OF_WORKERS> | 
-                                -d <REDIS_KEY> <DEST> <NUMBER_OF_WORKERS>
+                                -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> | 
+                                -d <REDIS_KEY> <DEST>
                                )
 
 Backup your local or s3 files safety.
@@ -65,11 +65,11 @@ Backup your local or s3 files safety.
     -l <SOURCE_TYPE> <SOURCE_ADDRESS>
                         get <SOURCE_TYPE> as ['local' | 's3'] and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] to create list of source files in Redis
                         
-    -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> <NUMBER_OF_WORKERS>
+    -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST>
                         get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] and 
                         get <DEST> as [ <LOCAL_DIRECTORY> | s3:<BUCKET_NAME> ] to copy source files to destination
                         
-    -d <REDIS_KEY> <DEST> <NUMBER_OF_WORKERS>
+    -d <REDIS_KEY> <DEST>
                         read Redis and download source files safety to <DEST> which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>
 
 ___
