@@ -79,16 +79,14 @@ def debug(func):
         value = func(*args, **kwargs)
 
         # Do something after
-        color_log("info", f"------ End of {func.__name__!r} returned {value!r}")
+        color_log("info", f"----- End of {func.__name__!r} returned {value!r}")
 
         return value
 
     return wrapper_debug
 
-
-class SafeBackup:
-    __region_dest = None
-
+class DB:
+    
     def db_connect(self):
         REDIS_DECODE_RESPONSE = os.getenv("SBACKUP_REDIS_DECODE_RESPONSE",True)
 
@@ -107,24 +105,56 @@ class SafeBackup:
         ",
         )
 
-        redis_db = redis.StrictRedis(
+        # redis_db = redis.StrictRedis(
+        self.db = redis.StrictRedis(
             host=url.scheme,
             port=url.path,
             db=0,
             decode_responses=REDIS_DECODE_RESPONSE,
         )
-        color_log("debug", f"---- {redis_db =}")
+        color_log("debug", f"---- {self.db =}")
 
-        return redis_db
+        # return redis_db
 
+    def key_exists(self, key):
+        return self.db.exists(args.d[0])
+        
+    def find(self, cursor, pattern):
+        return self.db.scan(cursor, pattern)[1]
+        
+    def get_elements(self, key, cursor):
+        return self.db.sscan(key, cursor)[1]
+        
+    def get_keys(self):
+        return self.db.keys()        
+        
+    def delete(self, key):
+        return self.db.delete(key)
+        
+    def set(self, key, value):
+        return self.db.set(key, value)
+        
+    def get(self, key):
+        return self.db.get(key)
+        
+    def set_add(self, key, value):
+        return self.db.sadd(key, value)
+        
+    def set_remove(self, key, value):
+        return self.db.srem(key, value)
+
+
+class SafeBackup:
+    __region_dest = None
+    
     @debug
     def __init__(self, args):
         """
         Checking for intruption and continue the last command.
         """
-        self.redis_db = self.db_connect()
+        DB.db_connect(self)
         color_log("debug", f" *********** args = {args} ######### ")
-        redis_keys = self.redis_db.scan(0, "*:marker")[1]
+        redis_keys = DB.find(self, 0, "*:marker")
         for key in redis_keys:
             color_log("debug", f" *********** key = {key} ######### ")
             commands = key.split(":")
@@ -141,7 +171,7 @@ class SafeBackup:
                     command_array[1],
                     command_array[2],
                     intruption=True,
-                    first_marker=self.redis_db.get(key),
+                    first_marker=DB.get(self, key),
                 )
             elif command_array[0] == "c":
                 self.save_files_list_in_redis(
@@ -150,7 +180,7 @@ class SafeBackup:
                     command_array[2],
                     commands[2],
                     intruption=True,
-                    first_marker=self.redis_db.get(key),
+                    first_marker=DB.get(self, key),
                 )
                 self.download_files_list_from_redis(
                     "d",
@@ -159,7 +189,7 @@ class SafeBackup:
                     command_array[4],
                 )
 
-        redis_keys = self.redis_db.scan(0, "*-working1")[1]
+        redis_keys = DB.find(self, 0, "*-working1")
         for key in redis_keys:
             color_log("debug", f" *********** {key} #########")
             keys = key.split("-")
@@ -249,7 +279,7 @@ class SafeBackup:
     def __make_redis_list_from_pages__(self, args):
         color_log("debug", args[1]["Key"])
         color_log("debug", args)
-        self.redis_db.sadd(args[0], args[1]["Key"])
+        DB.set_add(self, args[0], args[1]["Key"])
 
     @debug
     def __multiprocess__(self, redis_key, page_contents):
@@ -306,13 +336,13 @@ class SafeBackup:
                 color_log("debug", " **** NextMarker ******** ")
 
             if "Contents" in list(page.keys()):
-                self.redis_db.set(
+                DB.set(self, 
                     f"{redis_key}:{command_key}:marker",
                     page["Marker"],
                 )
                 self.__multiprocess__(redis_key, page["Contents"])
         else:
-            self.redis_db.getdel(f"{redis_key}:{command_key}:marker")
+            DB.delete(self, f"{redis_key}:{command_key}:marker")
 
         return redis_key
 
@@ -490,11 +520,11 @@ elif 2: The current files_path is "
                             )
                             file_path = f"{files_path}/{filename}"
                             redis_key = f"{source}:{location}"
-                            self.redis_db.sadd(redis_key, file_path)
+                            DB.set_add(self, redis_key, file_path)
                     color_log(
                         "debug",
                         f" *** save_files_...() \
-=> {self.redis_db.keys()}",
+=> {DB.get_keys(self)}",
                     )
                     print(
                         f"List of files created in '{redis_key}' \
@@ -524,8 +554,8 @@ redis key successfuly."
             s3_source = self.__s3_connect__().meta.client
         if destination.startswith("s3:"):
             s3_dest = self.__s3_connect__("dest").meta.client
-        for member in self.redis_db.sscan(redis_key, 0)[1]:
-            self.redis_db.set(f"{redis_key_worker}-working1", member)
+        for member in DB.get_elements(self, redis_key, 0):
+            DB.set(self, f"{redis_key_worker}-working1", member)
 
             # Backup from local to local
             if source[0] == "local" and not destination.startswith("s3:"):
@@ -671,9 +701,9 @@ not exists!"
             else:
                 print(" Something went wrong in download process!")
                 exit(2)
-            self.redis_db.srem(redis_key, member)
+            DB.set_remove(self, redis_key, member)
         else:
-            self.redis_db.delete(f"{redis_key_worker}-working1")
+            DB.delete(self, f"{redis_key_worker}-working1")
 
     @debug
     # def copy_files(self, option, source, location, destination, workers):
@@ -842,7 +872,8 @@ is not directory or not started with 's3:'!"
         print(f" Copy to <DEST> = {args.c[2]} successfully completed.")
 
     elif args.d:
-        if not safe_backup.redis_db.exists(args.d[0]) == 1:
+        # if not safe_backup.redis_db.exists(args.d[0]) == 1:
+        if not DB.key_exists(self, args.d[0]) == 1:
             parser.error(f"<REDIS_KEY>='{args.d[0]}' is not exists!")
         if not args.d[1].startswith("s3:"):
             if not Path(args.d[1]).is_dir():
