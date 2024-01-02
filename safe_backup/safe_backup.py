@@ -90,9 +90,9 @@ class SafeBackup:
     __region_dest = None
 
     def db_connect(self):
-        REDIS_DECODE_RESPONSE = os.getenv("REDIS_DECODE_RESPONSE", True)
+        REDIS_DECODE_RESPONSE = os.getenv("SBACKUP_REDIS_DECODE_RESPONSE",True)
 
-        redis_url = os.getenv("REDIS_URL", "127.0.0.1:6379")
+        redis_url = os.getenv("SBACKUP_REDIS_URL", "127.0.0.1:6379")
 
         urllib.parse.uses_netloc.append("redis")
         url = urllib.parse.urlparse(redis_url)
@@ -178,39 +178,42 @@ class SafeBackup:
         """
 
         if destination == "source":
-            AWS_DEFAULT_REGION = os.environ["AWS_DEFAULT_REGION"]
-            AWS_ACCESS_KEY_ID = os.environ["AWS_ACCESS_KEY_ID"]
-            AWS_SECRET_ACCESS_KEY = os.environ["AWS_SECRET_ACCESS_KEY"]
-            AWS_ENDPOINT_URL = os.environ["AWS_ENDPOINT_URL"]
+            AWS_DEFAULT_REGION = os.environ["SBACKUP_AWS_DEFAULT_REGION"]
+            AWS_ACCESS_KEY_ID = os.environ["SBACKUP_AWS_ACCESS_KEY_ID"]
+            AWS_SECRET_ACCESS_KEY = os.environ["SBACKUP_AWS_SECRET_ACCESS_KEY"]
+            AWS_ENDPOINT_URL = os.environ["SBACKUP_AWS_ENDPOINT_URL"]
         elif destination == "dest":
             AWS_DEFAULT_REGION = os.getenv(
-                "DEST_AWS_DEFAULT_REGION", os.environ["AWS_DEFAULT_REGION"]
+                "SBACKUP_DEST_AWS_DEFAULT_REGION", 
+                os.environ["SBACKUP_AWS_DEFAULT_REGION"]
             )
             self.__region_dest = AWS_DEFAULT_REGION
             AWS_ACCESS_KEY_ID = os.getenv(
-                "DEST_AWS_ACCESS_KEY_ID", os.environ["AWS_ACCESS_KEY_ID"]
+                "SBACKUP_DEST_AWS_ACCESS_KEY_ID", 
+                os.environ["SBACKUP_AWS_ACCESS_KEY_ID"]
             )
             AWS_SECRET_ACCESS_KEY = os.getenv(
-                "DEST_AWS_SECRET_ACCESS_KEY",
-                os.environ["AWS_SECRET_ACCESS_KEY"],
+                "SBACKUP_DEST_AWS_SECRET_ACCESS_KEY",
+                os.environ["SBACKUP_AWS_SECRET_ACCESS_KEY"],
             )
             AWS_ENDPOINT_URL = os.getenv(
-                "DEST_AWS_ENDPOINT_URL", os.environ["AWS_ENDPOINT_URL"]
+                "SBACKUP_DEST_AWS_ENDPOINT_URL", 
+                os.environ["SBACKUP_AWS_ENDPOINT_URL"]
             )
         else:
             print(f"The s3 destination={destination} is not defined.")
             exit(1)
 
         session = boto3.session.Session(
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            aws_access_key_id=SBACKUP_AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=SBACKUP_AWS_SECRET_ACCESS_KEY,
             aws_session_token=None,
         )
 
         return session.resource(
             "s3",
-            region_name=AWS_DEFAULT_REGION,
-            endpoint_url=AWS_ENDPOINT_URL,
+            region_name=SBACKUP_AWS_DEFAULT_REGION,
+            endpoint_url=SBACKUP_AWS_ENDPOINT_URL,
             config=boto3.session.Config(signature_version="s3v4"),
             verify=False,
         )
