@@ -742,13 +742,13 @@ which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     args = parser.parse_args()    
     
     # disable logging
-    if not args.log or args.log[0].upper()=='NOTSET':
+    if not args.L or args.L[0].upper()=='NOTSET':
         logging.disable(logging.CRITICAL)
     # activate logging level
     else:
         # levels => NOTSET -> DEBUG -> INFO -> WARNING -> ERROR -> CRITICAL
         # levels =>   0    -> 10    -> 20   -> 30      -> 40    -> 50
-        match args.log[0].upper():
+        match args.L[0].upper():
             # case "NOTSET":
             case "DEBUG":
                 logging.basicConfig(
