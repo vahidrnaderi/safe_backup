@@ -26,20 +26,9 @@ from botocore.client import ClientError
 from pathlib import Path
 import redis
 import argparse
-
-# from multiprocessing import Pool
 import functools
 import urllib.parse
 import multiprocessing
-
-# Logging levels => NOTSET -> DEBUG -> INFO -> WARNING -> ERROR -> CRITICAL
-logging.basicConfig(
-    level=logging.DEBUG,
-    format=" %(asctime)s -  %(levelname)s -  %(message)s",
-)
-
-# Start/Stop logging with commenting/uncommenting next line
-# logging.disable(logging.CRITICAL)
 
 
 def color_log(types, message):
@@ -709,6 +698,10 @@ def main():
     parser = argparse.ArgumentParser(
         prog="safe_backup", description="Backup your local or s3 files safely."
     )
+    
+    parser.add_argument('-L', nargs=1, metavar=("<LOG_MODE>"),
+                    help='Get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, \
+ERROR, CRITICAL) and Activate logging level')
 
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -743,7 +736,50 @@ to copy source files to destination",
 which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args()    
+    
+    # disable logging
+    if not args.log or args.log[0].upper()=='NOTSET':
+        logging.disable(logging.CRITICAL)
+    # activate logging level
+    else:
+        # levels => NOTSET -> DEBUG -> INFO -> WARNING -> ERROR -> CRITICAL
+        # levels =>   0    -> 10    -> 20   -> 30      -> 40    -> 50
+        match args.log[0].upper():
+            # case "NOTSET":
+            case "DEBUG":
+                logging.basicConfig(
+                level=logging.DEBUG,
+                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                )
+                color_log("debug", "Start logging at DEBUG level ")
+            case "INFO":
+                logging.basicConfig(
+                level=logging.INFO,
+                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                )
+                color_log("info", "Start logging at INFO level ")
+            case "WARNING":
+                logging.basicConfig(
+                level=logging.WARNING,
+                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                )
+                color_log("warning", "Start logging at WARNING level ")
+            case "ERROR":
+                logging.basicConfig(
+                level=logging.ERROR,
+                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                )
+                color_log("error", "Start logging at ERROR level ")
+            case "CRITICAL":
+                logging.basicConfig(
+                level=logging.CRITICAL,
+                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                )
+                color_log("critical", "Start logging at CRITICAL level ")
+            case _:
+                parser.error(f"<LOG_MODE>='{args.debug[0]}' is not defined!")
+    
     color_log("debug", f"main() *** {args}")
     color_log("debug", f"main() *** {args.l}")
     color_log("debug", f"main() *** {args.c}")
