@@ -87,6 +87,7 @@ def debug(func):
 
 class DB:
     
+    @debug
     def db_connect(self):
         REDIS_DECODE_RESPONSE = os.getenv("SBACKUP_REDIS_DECODE_RESPONSE",True)
 
@@ -115,31 +116,40 @@ class DB:
         color_log("debug", f"---- {self.db =}")
 
         # return redis_db
-
+    
+    @debug
     def key_exists(self, key):
         return self.db.exists(args.d[0])
-        
+    
+    @debug
     def find(self, cursor, pattern):
         return self.db.scan(cursor, pattern)[1]
-        
+    
+    @debug
     def get_elements(self, key, cursor):
         return self.db.sscan(key, cursor)[1]
-        
+     
+    @debug   
     def get_keys(self):
         return self.db.keys()        
-        
+     
+    @debug   
     def delete(self, key):
         return self.db.delete(key)
-        
+     
+    @debug   
     def set(self, key, value):
         return self.db.set(key, value)
-        
+     
+    @debug   
     def get(self, key):
         return self.db.get(key)
-        
+     
+    @debug   
     def set_add(self, key, value):
         return self.db.sadd(key, value)
-        
+     
+    @debug   
     def set_remove(self, key, value):
         return self.db.srem(key, value)
 
