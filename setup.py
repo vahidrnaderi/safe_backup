@@ -1,8 +1,13 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r") as f:
+    long_description = f.read()
+    
 setup(
     name='safe_backup',
     version='0.1.0',
+    description="This program creates a secure backup of your files from a specified directory or an object storage location.",
+    long_description=long_description,
     packages=find_packages(include=['safe_backup', 'safe_backup.*']),
     install_requires=[
         'async-timeout==4.0.3',
