@@ -774,7 +774,7 @@ not exists!"
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="safe_backup", description="Backup your local or s3 files safely."
+        prog="sbackup", description="Backup your local or s3 files safely."
     )
 
     parser.add_argument(

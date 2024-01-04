@@ -48,12 +48,14 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
     $ export SBACKUP_DEST_AWS_SECRET_ACCESS_KEY = <DEST_AWS_SECRET_ACCESS_KEY>   #MinIO/S3 secret key
     $ export SBACKUP_DEST_AWS_ENDPOINT_URL = <DEST_AWS_ENDPOINT_URL>             #for MinIO set to 'http://localhost:9000'
 
-## Usage:
+## Install:
+    $ pip install safe_backup
 
-    $ python3 safe_backup [-h] [-L <LOG_MODE>] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
-                                                -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> | 
-                                                -d <DB_KEY> <DEST>
-                                               )
+## Usage:
+    $ sbackup [-h] [-L <LOG_MODE>] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
+                                    -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> | 
+                                    -d <DB_KEY> <DEST>
+                                   )
 
 Backup your local or s3 files safety.
 
