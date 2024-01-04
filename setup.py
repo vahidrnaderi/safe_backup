@@ -1,13 +1,21 @@
 from setuptools import setup, find_packages
 
-with open("README.md", "r") as f:
-    long_description = f.read()
+def get_long_description():
+    with open(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'README.md'
+    ), encoding='utf8') as fp:
+        return fp.read()
     
 setup(
     name='safe_backup',
     version='0.1.0',
     description="This program creates a secure backup of your files from a specified directory or an object storage location.",
-    long_description=long_description,
+    long_description=get_long_description(),
+    long_description_content_type='text/markdown',
+    author='Vahidreza Naderi',
+    version=__version__,
+    license='Apache License, Version 2.0',
+    url='https://github.com/vahidrnaderi/safe_backup',
     packages=find_packages(include=['safe_backup', 'safe_backup.*']),
     install_requires=[
         'async-timeout==4.0.3',
