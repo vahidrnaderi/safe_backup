@@ -75,6 +75,11 @@ def debug(func):
 
         # Do something before
         color_log("info", f"---- Calling {func.__name__}({signature})")
+        color_log(
+            "info",
+            f"---- Calling {func.__name__}( \
+*args={args_repr} and **kwargs={kwargs_repr})",
+        )
 
         value = func(*args, **kwargs)
 
@@ -85,11 +90,11 @@ def debug(func):
 
     return wrapper_debug
 
+
 class DB:
-    
     @debug
     def db_connect(self):
-        DB_DECODE_RESPONSE = os.getenv("SBACKUP_DB_DECODE_RESPONSE",True)
+        DB_DECODE_RESPONSE = os.getenv("SBACKUP_DB_DECODE_RESPONSE", True)
 
         db_url = os.getenv("SBACKUP_DB_URL", "127.0.0.1:6379")
 
@@ -113,59 +118,59 @@ class DB:
             decode_responses=DB_DECODE_RESPONSE,
         )
         color_log("debug", f"---- {self.db =}")
-    
+
     @debug
     def key_exists(self, key):
-        return self.db.exists(args.d[0])
-    
+        return self.db.exists(key)
+
     @debug
     def find(self, cursor, pattern):
         return self.db.scan(cursor, pattern)[1]
-    
+
     @debug
     def get_elements(self, key, cursor):
         return self.db.sscan(key, cursor)[1]
-     
-    @debug   
+
+    @debug
     def get_keys(self):
-        return self.db.keys()        
-     
-    @debug   
+        return self.db.keys()
+
+    @debug
     def delete(self, key):
         return self.db.delete(key)
-     
-    @debug   
+
+    @debug
     def set(self, key, value):
         return self.db.set(key, value)
-     
-    @debug   
+
+    @debug
     def get(self, key):
         return self.db.get(key)
-     
-    @debug   
+
+    @debug
     def set_add(self, key, value):
         return self.db.sadd(key, value)
-     
-    @debug   
+
+    @debug
     def set_remove(self, key, value):
         return self.db.srem(key, value)
 
 
 class SafeBackup:
     __region_dest = None
-    
+
     @debug
     def __init__(self, args):
         """
-        Connect to db and S3 if needed then check for intruption 
+        Connect to db and S3 if needed then check for intruption
         and continue the last command.
-        """        
-        
+        """
+
         DB.db_connect(self)
         color_log("debug", f" *********** args = {args} ######### ")
-        
+
         self.__check_if_s3_connection_need__(args)
-        
+
         self.__resume_intrupting__()
 
     @debug
@@ -173,7 +178,7 @@ class SafeBackup:
         """
         Check and establish a connection if needed for S3.
         """
-        
+
         if args.l:
             if args.l[0] == "s3":
                 self.s3_source = self.__s3_connect__("source")
@@ -182,7 +187,7 @@ class SafeBackup:
             if args.c[0] == "s3":
                 self.s3_source = self.__s3_connect__("source")
                 self.s3_source_client = self.s3_source.meta.client
-                
+
         if args.c:
             if args.c[2].startswith("s3:"):
                 self.s3_dest = self.__s3_connect__("dest")
@@ -197,7 +202,7 @@ class SafeBackup:
         """
         Check and continue if any interruption occurred.
         """
-        
+
         db_keys = DB.find(self, 0, "*:marker_sbackup")
         for key in db_keys:
             color_log("debug", f" *********** key = {key} ######### ")
@@ -232,18 +237,18 @@ class SafeBackup:
                     command_array[3],
                     command_array[4],
                 )
-                
+
         db_keys = DB.find(self, 0, "*-work_sbackup")
         for key in db_keys:
             color_log("debug", f" *********** {key} #########")
             keys = key.split("-")
             command = keys[1].split("__")
             color_log("debug", f" *********** {keys} + {command} ######### ")
-            self.download_files_list_from_db(
-                "d",
-                keys[0],
-                command[1]
-            )
+            self.download_files_list_from_db("d", keys[0], command[1])
+
+    @debug
+    def check_db_key_exists(self, key):
+        return DB.key_exists(self, key)
 
     @debug
     def __s3_connect__(self, destination="source"):
@@ -258,21 +263,21 @@ class SafeBackup:
             AWS_ENDPOINT_URL = os.environ["SBACKUP_AWS_ENDPOINT_URL"]
         elif destination == "dest":
             AWS_DEFAULT_REGION = os.getenv(
-                "SBACKUP_DEST_AWS_DEFAULT_REGION", 
-                os.environ["SBACKUP_AWS_DEFAULT_REGION"]
+                "SBACKUP_DEST_AWS_DEFAULT_REGION",
+                os.environ["SBACKUP_AWS_DEFAULT_REGION"],
             )
             self.__region_dest = AWS_DEFAULT_REGION
             AWS_ACCESS_KEY_ID = os.getenv(
-                "SBACKUP_DEST_AWS_ACCESS_KEY_ID", 
-                os.environ["SBACKUP_AWS_ACCESS_KEY_ID"]
+                "SBACKUP_DEST_AWS_ACCESS_KEY_ID",
+                os.environ["SBACKUP_AWS_ACCESS_KEY_ID"],
             )
             AWS_SECRET_ACCESS_KEY = os.getenv(
                 "SBACKUP_DEST_AWS_SECRET_ACCESS_KEY",
                 os.environ["SBACKUP_AWS_SECRET_ACCESS_KEY"],
             )
             AWS_ENDPOINT_URL = os.getenv(
-                "SBACKUP_DEST_AWS_ENDPOINT_URL", 
-                os.environ["SBACKUP_AWS_ENDPOINT_URL"]
+                "SBACKUP_DEST_AWS_ENDPOINT_URL",
+                os.environ["SBACKUP_AWS_ENDPOINT_URL"],
             )
         else:
             print(f"The s3 destination={destination} is not defined.")
@@ -349,12 +354,7 @@ class SafeBackup:
         max_items=None,
         first_marker="",
     ):
-        # Create a client
-        # s3_source = self.__s3_connect__().meta.client
-        # s3_so = self.s3_source.meta.client
-
         # Create a reusable Paginator
-        # paginator = s3_so.get_paginator("list_objects")
         paginator = self.s3_source_client.get_paginator("list_objects")
 
         # Create and Customizing page iterators
@@ -382,7 +382,8 @@ class SafeBackup:
                 color_log("debug", " **** NextMarker ******** ")
 
             if "Contents" in list(page.keys()):
-                DB.set(self, 
+                DB.set(
+                    self,
                     f"{db_key}:{command_key}:marker_sbackup",
                     page["Marker"],
                 )
@@ -394,9 +395,7 @@ class SafeBackup:
 
     @debug
     def bucket_exists(self, bucket_name):
-        # s3_source = self.__s3_connect__()
         try:
-            # s3_source.meta.client.head_bucket(Bucket=bucket_name)
             self.s3_source_client.head_bucket(Bucket=bucket_name)
             return True, f"<BUCKET_NAME>='{bucket_name}' is exists!"
         except ClientError as e:
@@ -442,7 +441,6 @@ class SafeBackup:
                     " *** save_files_list_in_db() \
 => Source is a s3.",
                 )
-                # s3_source = self.__s3_connect__()
                 bucket = self.s3_source.Bucket(location)
                 if not intruption:
                     if option == "l":
@@ -592,14 +590,13 @@ db key successfuly."
         destination,
     ):
         source = db_key.split(":")
-        color_log("debug", f" *** download_files_...()=> from {source =} to \
-{destination =}")
+        color_log(
+            "debug",
+            f" *** download_files_...()=> from {source =} to \
+{destination =}",
+        )
+
         db_key_worker = f"{db_key}-{option}__{destination}"
-        # if source[0] == "s3":
-            # # s3_source = self.__s3_connect__().meta.client
-            # s3_so = self.s3_source.meta.client
-        # if destination.startswith("s3:"):
-            # s3_de = self.s3_dest.meta.client
         for member in DB.get_elements(self, db_key, 0):
             DB.set(self, f"{db_key_worker}-work_sbackup", member)
 
@@ -661,7 +658,9 @@ dest = s3:{s3_dest_bucket}",
                     # The bucket does not exist or you have no access.
                     # Create the destination bucket.
                     if not self.__create_bucket__(
-                        self.s3_dest_client, s3_dest_bucket, self.__region_dest
+                        self.s3_dest_client,
+                        s3_dest_bucket,
+                        self.__region_dest,
                     ):
                         print(
                             "  ######  There was a problem to \
@@ -669,14 +668,13 @@ create destination bucket!"
                         )
                         exit(1)
 
-                copy_source = {"Bucket": source[1], "Key": member}
+                source_copy = {"Bucket": source[1], "Key": member}
                 try:
-                    # self.s3_source.meta.client.copy(copy_source, 
-                                                      # s3_dest_bucket, 
-                                                      # member)
-                    self.s3_dest.meta.client.copy(copy_source, 
-                                                  s3_dest_bucket, 
-                                                  member)
+                    self.s3_dest_client.copy(
+                        source_copy,
+                        s3_dest_bucket,
+                        member,
+                    )
                 except ClientError as e:
                     print(f" There was an error: {e}")
                     exit(1)
@@ -778,10 +776,14 @@ def main():
     parser = argparse.ArgumentParser(
         prog="safe_backup", description="Backup your local or s3 files safely."
     )
-    
-    parser.add_argument('-L', nargs=1, metavar=("<LOG_MODE>"),
-                    help='Get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, \
-ERROR, CRITICAL) and Activate logging level')
+
+    parser.add_argument(
+        "-L",
+        nargs=1,
+        metavar=("<LOG_MODE>"),
+        help="Get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, \
+ERROR, CRITICAL) and Activate logging level",
+    )
 
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -800,7 +802,6 @@ to create list of source files in db",
             "<SOURCE_TYPE>",
             "<SOURCE_ADDRESS>",
             "<DEST>",
-            # "<NUMBER_OF_WORKERS>",
         ),
         help="get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as \
 [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] and \
@@ -815,10 +816,10 @@ to copy source files to destination",
 which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
-    args = parser.parse_args()    
-    
+    args = parser.parse_args()
+
     # disable logging
-    if not args.L or args.L[0].upper()=='NOTSET':
+    if not args.L or args.L[0].upper() == "NOTSET":
         logging.disable(logging.CRITICAL)
     # activate logging level
     else:
@@ -828,37 +829,37 @@ which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
             # case "NOTSET":
             case "DEBUG":
                 logging.basicConfig(
-                level=logging.DEBUG,
-                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                    level=logging.DEBUG,
+                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
                 )
                 color_log("debug", "Start logging at DEBUG level ")
             case "INFO":
                 logging.basicConfig(
-                level=logging.INFO,
-                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                    level=logging.INFO,
+                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
                 )
                 color_log("info", "Start logging at INFO level ")
             case "WARNING":
                 logging.basicConfig(
-                level=logging.WARNING,
-                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                    level=logging.WARNING,
+                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
                 )
                 color_log("warning", "Start logging at WARNING level ")
             case "ERROR":
                 logging.basicConfig(
-                level=logging.ERROR,
-                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                    level=logging.ERROR,
+                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
                 )
                 color_log("error", "Start logging at ERROR level ")
             case "CRITICAL":
                 logging.basicConfig(
-                level=logging.CRITICAL,
-                format=" %(asctime)s -  %(levelname)s -  %(message)s",
+                    level=logging.CRITICAL,
+                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
                 )
                 color_log("critical", "Start logging at CRITICAL level ")
             case _:
                 parser.error(f"<LOG_MODE>='{args.debug[0]}' is not defined!")
-    
+
     color_log("debug", f"main() *** {args}")
     color_log("debug", f"main() *** {args.l}")
     color_log("debug", f"main() *** {args.c}")
@@ -913,7 +914,7 @@ is not directory or not started with 's3:'!"
         print(f" Copy to <DEST> = {args.c[2]} successfully completed.")
 
     elif args.d:
-        if not DB.key_exists(self, args.d[0]) == 1:
+        if not safe_backup.check_db_key_exists(args.d[0]) == 1:
             parser.error(f"<DB_KEY>='{args.d[0]}' is not exists!")
         if not args.d[1].startswith("s3:"):
             if not Path(args.d[1]).is_dir():
@@ -942,5 +943,3 @@ if __name__ == "__main__":
     import sys
 
     sys.exit(main())
-
-
