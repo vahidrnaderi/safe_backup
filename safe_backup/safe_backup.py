@@ -74,12 +74,12 @@ def debug(func):
         signature = ", ".join(args_repr + kwargs_repr)
 
         # Do something before
-        color_log("info", f"------ Calling {func.__name__}({signature})")
+        color_log("info", f"---- Calling {func.__name__}({signature})")
 
         value = func(*args, **kwargs)
 
         # Do something after
-        color_log("info", f"----- End of {func.__name__!r} returned {value!r}")
+        color_log("info", f"---- End of {func.__name__!r} returned {value!r}")
 
         return value
 
@@ -89,33 +89,30 @@ class DB:
     
     @debug
     def db_connect(self):
-        REDIS_DECODE_RESPONSE = os.getenv("SBACKUP_REDIS_DECODE_RESPONSE",True)
+        DB_DECODE_RESPONSE = os.getenv("SBACKUP_DB_DECODE_RESPONSE",True)
 
-        redis_url = os.getenv("SBACKUP_REDIS_URL", "127.0.0.1:6379")
+        db_url = os.getenv("SBACKUP_DB_URL", "127.0.0.1:6379")
 
         urllib.parse.uses_netloc.append("redis")
-        url = urllib.parse.urlparse(redis_url)
+        url = urllib.parse.urlparse(db_url)
 
         color_log(
             "debug",
             f"------\n \
-            {redis_url = }\n \
+            {db_url = }\n \
             {urllib = }\n \
             {url = }\n \
-            {REDIS_DECODE_RESPONSE = } \
+            {DB_DECODE_RESPONSE = } \
         ",
         )
 
-        # redis_db = redis.StrictRedis(
         self.db = redis.StrictRedis(
             host=url.scheme,
             port=url.path,
             db=0,
-            decode_responses=REDIS_DECODE_RESPONSE,
+            decode_responses=DB_DECODE_RESPONSE,
         )
         color_log("debug", f"---- {self.db =}")
-
-        # return redis_db
     
     @debug
     def key_exists(self, key):
@@ -160,12 +157,49 @@ class SafeBackup:
     @debug
     def __init__(self, args):
         """
-        Checking for intruption and continue the last command.
-        """
+        Connect to db and S3 if needed then check for intruption 
+        and continue the last command.
+        """        
+        
         DB.db_connect(self)
         color_log("debug", f" *********** args = {args} ######### ")
-        redis_keys = DB.find(self, 0, "*:marker")
-        for key in redis_keys:
+        
+        self.__check_if_s3_connection_need__(args)
+        
+        self.__resume_intrupting__()
+
+    @debug
+    def __check_if_s3_connection_need__(self, args):
+        """
+        Check and establish a connection if needed for S3.
+        """
+        
+        if args.l:
+            if args.l[0] == "s3":
+                self.s3_source = self.__s3_connect__("source")
+                self.s3_source_client = self.s3_source.meta.client
+        elif args.c:
+            if args.c[0] == "s3":
+                self.s3_source = self.__s3_connect__("source")
+                self.s3_source_client = self.s3_source.meta.client
+                
+        if args.c:
+            if args.c[2].startswith("s3:"):
+                self.s3_dest = self.__s3_connect__("dest")
+                self.s3_dest_client = self.s3_dest.meta.client
+        elif args.d:
+            if args.d[1].startswith("s3:"):
+                self.s3_dest = self.__s3_connect__("dest")
+                self.s3_dest_client = self.s3_dest.meta.client
+
+    @debug
+    def __resume_intrupting__(self):
+        """
+        Check and continue if any interruption occurred.
+        """
+        
+        db_keys = DB.find(self, 0, "*:marker_sbackup")
+        for key in db_keys:
             color_log("debug", f" *********** key = {key} ######### ")
             commands = key.split(":")
             command_array = commands[2].split("__")
@@ -176,7 +210,7 @@ class SafeBackup:
 {command_array} ######### ",
             )
             if command_array[0] == "l":
-                self.save_files_list_in_redis(
+                self.save_files_list_in_db(
                     "l",
                     command_array[1],
                     command_array[2],
@@ -184,7 +218,7 @@ class SafeBackup:
                     first_marker=DB.get(self, key),
                 )
             elif command_array[0] == "c":
-                self.save_files_list_in_redis(
+                self.save_files_list_in_db(
                     "c",
                     command_array[1],
                     command_array[2],
@@ -192,20 +226,20 @@ class SafeBackup:
                     intruption=True,
                     first_marker=DB.get(self, key),
                 )
-                self.download_files_list_from_redis(
+                self.download_files_list_from_db(
                     "d",
                     f"{commands[0]}:{commands[1]}",
                     command_array[3],
                     command_array[4],
                 )
-
-        redis_keys = DB.find(self, 0, "*-working1")
-        for key in redis_keys:
+                
+        db_keys = DB.find(self, 0, "*-work_sbackup")
+        for key in db_keys:
             color_log("debug", f" *********** {key} #########")
             keys = key.split("-")
             command = keys[1].split("__")
             color_log("debug", f" *********** {keys} + {command} ######### ")
-            self.download_files_list_from_redis(
+            self.download_files_list_from_db(
                 "d",
                 keys[0],
                 command[1]
@@ -245,15 +279,15 @@ class SafeBackup:
             exit(1)
 
         session = boto3.session.Session(
-            aws_access_key_id=SBACKUP_AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=SBACKUP_AWS_SECRET_ACCESS_KEY,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
             aws_session_token=None,
         )
 
         return session.resource(
             "s3",
-            region_name=SBACKUP_AWS_DEFAULT_REGION,
-            endpoint_url=SBACKUP_AWS_ENDPOINT_URL,
+            region_name=AWS_DEFAULT_REGION,
+            endpoint_url=AWS_ENDPOINT_URL,
             config=boto3.session.Config(signature_version="s3v4"),
             verify=False,
         )
@@ -286,20 +320,20 @@ class SafeBackup:
         return True
 
     @debug
-    def __make_redis_list_from_pages__(self, args):
+    def __make_db_list_from_s3_pages__(self, args):
         color_log("debug", args[1]["Key"])
         color_log("debug", args)
         DB.set_add(self, args[0], args[1]["Key"])
 
     @debug
-    def __multiprocess__(self, redis_key, page_contents):
+    def __multiprocess__(self, db_key, page_contents):
         processes = []
         for content in page_contents:
             args = [
-                [redis_key, content],
+                [db_key, content],
             ]
             p = multiprocessing.Process(
-                target=self.__make_redis_list_from_pages__, args=args
+                target=self.__make_db_list_from_s3_pages__, args=args
             )
             processes.append(p)
             p.start()
@@ -316,10 +350,12 @@ class SafeBackup:
         first_marker="",
     ):
         # Create a client
-        s3_so = self.__s3_connect__().meta.client
+        # s3_source = self.__s3_connect__().meta.client
+        # s3_so = self.s3_source.meta.client
 
         # Create a reusable Paginator
-        paginator = s3_so.get_paginator("list_objects")
+        # paginator = s3_so.get_paginator("list_objects")
+        paginator = self.s3_source_client.get_paginator("list_objects")
 
         # Create and Customizing page iterators
         page_iterator = paginator.paginate(
@@ -331,7 +367,7 @@ class SafeBackup:
             },
         )
 
-        redis_key = f"s3:{bucket.name}"
+        db_key = f"s3:{bucket.name}"
 
         for page in page_iterator:
             color_log("debug", f" \n*********\n {page =}\n ############ \n")
@@ -347,20 +383,21 @@ class SafeBackup:
 
             if "Contents" in list(page.keys()):
                 DB.set(self, 
-                    f"{redis_key}:{command_key}:marker",
+                    f"{db_key}:{command_key}:marker_sbackup",
                     page["Marker"],
                 )
-                self.__multiprocess__(redis_key, page["Contents"])
+                self.__multiprocess__(db_key, page["Contents"])
         else:
-            DB.delete(self, f"{redis_key}:{command_key}:marker")
+            DB.delete(self, f"{db_key}:{command_key}:marker_sbackup")
 
-        return redis_key
+        return db_key
 
     @debug
     def bucket_exists(self, bucket_name):
-        s3_so = self.__s3_connect__()
+        # s3_source = self.__s3_connect__()
         try:
-            s3_so.meta.client.head_bucket(Bucket=bucket_name)
+            # s3_source.meta.client.head_bucket(Bucket=bucket_name)
+            self.s3_source_client.head_bucket(Bucket=bucket_name)
             return True, f"<BUCKET_NAME>='{bucket_name}' is exists!"
         except ClientError as e:
             # If a client error is thrown, then check that it was a 404 error.
@@ -376,7 +413,7 @@ class SafeBackup:
                 )
 
     @debug
-    def save_files_list_in_redis(
+    def save_files_list_in_db(
         self,
         option,
         source,
@@ -386,7 +423,7 @@ class SafeBackup:
         first_marker=None,
     ):
         """
-        Make a list from source and save it in redis.
+        Make a list from source and save it in db.
         source must be one of 'local' or 's3'
 
         if source is 'local' then
@@ -397,48 +434,48 @@ class SafeBackup:
 
         """
         files_path = ""
-        redis_key = ""
+        db_key = ""
         match source:
             case "s3":
                 color_log(
                     "debug",
-                    " *** save_files_list_in_redis() \
+                    " *** save_files_list_in_db() \
 => Source is a s3.",
                 )
-                s3_so = self.__s3_connect__()
-                bucket = s3_so.Bucket(location)
+                # s3_source = self.__s3_connect__()
+                bucket = self.s3_source.Bucket(location)
                 if not intruption:
                     if option == "l":
-                        redis_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator__(
                             bucket, f"{option}__{source}__{location}"
                         )
                     elif option == "c":
-                        redis_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator__(
                             bucket,
                             command_key,
                         )
                 else:
                     if option == "l":
-                        redis_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator__(
                             bucket,
                             f"{option}__{source}__{location}",
                             first_marker=first_marker,
                         )
                     elif option == "c":
-                        redis_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator__(
                             bucket, command_key, first_marker=first_marker
                         )
 
             case "local":
                 color_log(
                     "debug",
-                    " *** save_files_list_in_redis() \
+                    " *** save_files_list_in_db() \
 => Source is a local.",
                 )
                 if Path(location).is_dir() and Path(location).exists:
                     color_log(
                         "debug",
-                        " *** save_files_list_in_redis() => \
+                        " *** save_files_list_in_db() => \
 Location is a directory.",
                     )
                     root_path = location.split(os.sep)[-1]
@@ -529,49 +566,48 @@ elif 2: The current files_path is "
                                 + filename,
                             )
                             file_path = f"{files_path}/{filename}"
-                            redis_key = f"{source}:{location}"
-                            DB.set_add(self, redis_key, file_path)
+                            db_key = f"{source}:{location}"
+                            DB.set_add(self, db_key, file_path)
                     color_log(
                         "debug",
                         f" *** save_files_...() \
 => {DB.get_keys(self)}",
                     )
                     print(
-                        f"List of files created in '{redis_key}' \
-redis key successfuly."
+                        f"List of files created in '{db_key}' \
+db key successfuly."
                     )
                 else:
                     print("location is not directory or not exist.")
                     exit(1)
             case _:
                 print("Source is not valied.")
-        return redis_key
+        return db_key
 
     @debug
-    def download_files_list_from_redis(
+    def download_files_list_from_db(
         self,
         option,
-        redis_key,
+        db_key,
         destination,
-        # workers,
     ):
-        source = redis_key.split(":")
-        color_log("debug", f" *** download_files_...()=> {source =}")
-        color_log("debug", f" *** download_files_...()=> {destination =}")
-        # redis_key_worker = f"{redis_key}-{option}__{destination}__{workers}"
-        redis_key_worker = f"{redis_key}-{option}__{destination}"
-        if source[0] == "s3":
-            s3_source = self.__s3_connect__().meta.client
-        if destination.startswith("s3:"):
-            s3_dest = self.__s3_connect__("dest").meta.client
-        for member in DB.get_elements(self, redis_key, 0):
-            DB.set(self, f"{redis_key_worker}-working1", member)
+        source = db_key.split(":")
+        color_log("debug", f" *** download_files_...()=> from {source =} to \
+{destination =}")
+        db_key_worker = f"{db_key}-{option}__{destination}"
+        # if source[0] == "s3":
+            # # s3_source = self.__s3_connect__().meta.client
+            # s3_so = self.s3_source.meta.client
+        # if destination.startswith("s3:"):
+            # s3_de = self.s3_dest.meta.client
+        for member in DB.get_elements(self, db_key, 0):
+            DB.set(self, f"{db_key_worker}-work_sbackup", member)
 
             # Backup from local to local
             if source[0] == "local" and not destination.startswith("s3:"):
                 color_log(
                     "debug",
-                    f"*** if *** download_files_...()=> \
+                    f"*** <local to local> *** download_files_...()=> \
 source = {Path(source[1]).parent}/{member} \
 --> dest = {destination}/{member}",
                 )
@@ -589,7 +625,7 @@ source = {Path(source[1]).parent}/{member} \
                             print(f"There was an error: {e}")
                     case "s3":
                         try:
-                            s3_source.download_file(
+                            self.s3_source_client.download_file(
                                 source[1],
                                 member,
                                 f"{destination}/{member}",
@@ -598,17 +634,17 @@ source = {Path(source[1]).parent}/{member} \
                             print(f"There was an error: {e}")
 
             # Backup from s3 to s3
-            elif redis_key.startswith("s3:") and destination.startswith("s3:"):
+            elif db_key.startswith("s3:") and destination.startswith("s3:"):
                 s3_dest_bucket = destination.split(":")[1]
                 color_log(
                     "debug",
-                    f" *** elif *** {member = } --> \
+                    f" *** <s3 to s3> *** {member = } --> \
 dest = s3:{s3_dest_bucket}",
                 )
 
                 color_log(
                     "debug",
-                    f" *** elif *** {source[1] = } -> \
+                    f" *** <s3 to s3> *** {source[1] = } -> \
 ./{destination}/{member}",
                 )
 
@@ -617,15 +653,15 @@ dest = s3:{s3_dest_bucket}",
                 try:
                     color_log(
                         "debug",
-                        f" ** elif ** \
-{s3_dest.list_buckets()['Buckets'] = }",
+                        f" ** <s3 to s3> ** \
+{self.s3_dest_client.list_buckets()['Buckets'] = }",
                     )
-                    s3_dest.head_bucket(Bucket=s3_dest_bucket)
+                    self.s3_dest_client.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
                     # The bucket does not exist or you have no access.
                     # Create the destination bucket.
                     if not self.__create_bucket__(
-                        s3_dest, s3_dest_bucket, self.__region_dest
+                        self.s3_dest_client, s3_dest_bucket, self.__region_dest
                     ):
                         print(
                             "  ######  There was a problem to \
@@ -633,10 +669,14 @@ create destination bucket!"
                         )
                         exit(1)
 
-                s3 = boto3.resource("s3")
                 copy_source = {"Bucket": source[1], "Key": member}
                 try:
-                    s3.meta.client.copy(copy_source, s3_dest_bucket, member)
+                    # self.s3_source.meta.client.copy(copy_source, 
+                                                      # s3_dest_bucket, 
+                                                      # member)
+                    self.s3_dest.meta.client.copy(copy_source, 
+                                                  s3_dest_bucket, 
+                                                  member)
                 except ClientError as e:
                     print(f" There was an error: {e}")
                     exit(1)
@@ -646,27 +686,27 @@ create destination bucket!"
                 s3_dest_bucket = destination.split(":")[1]
                 color_log(
                     "debug",
-                    f" *** elif-2 *** {member = } --> \
+                    f" *** <local to s3> *** {member = } --> \
 dest = s3:{s3_dest_bucket}",
                 )
                 color_log(
                     "debug",
-                    f" *** elif-2 *** {source[1] = } -> \
+                    f" *** <local to s3> *** {source[1] = } -> \
 ./{destination}/{member}",
                 )
                 # Check destination bucket and create it if not exists
                 try:
                     color_log(
                         "debug",
-                        f" ** elif-2 ** \
-{s3_dest.list_buckets()['Buckets'] = }",
+                        f" ** <local to s3> ** \
+{self.s3_dest_client.list_buckets()['Buckets'] = }",
                     )
-                    s3_dest.head_bucket(Bucket=s3_dest_bucket)
+                    self.s3_dest_client.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
                     # The bucket does not exist or you have no access.
                     # Create the destination bucket.
                     if not self.__create_bucket__(
-                        s3_dest, s3_dest_bucket, self.__region_dest
+                        self.s3_dest_client, s3_dest_bucket, self.__region_dest
                     ):
                         print(
                             "  ######  There was a problem to \
@@ -682,7 +722,7 @@ create destination bucket!"
                 source_path_parent = Path(source[1]).parent
                 if os.path.exists(Path(f"./{source_path_parent}/{member}")):
                     try:
-                        s3_dest.upload_file(
+                        self.s3_dest_client.upload_file(
                             f"./{source_path_parent}/{member}",
                             s3_dest_bucket,
                             member,
@@ -701,7 +741,7 @@ not exists!"
                 if not os.path.exists(parent):
                     os.makedirs(parent)
                 try:
-                    s3_source.download_file(
+                    self.s3_source_client.download_file(
                         source[1],
                         member,
                         f"{destination}/{member}",
@@ -711,30 +751,27 @@ not exists!"
             else:
                 print(" Something went wrong in download process!")
                 exit(2)
-            DB.set_remove(self, redis_key, member)
+            DB.set_remove(self, db_key, member)
         else:
-            DB.delete(self, f"{redis_key_worker}-working1")
+            DB.delete(self, f"{db_key_worker}-work_sbackup")
 
     @debug
-    # def copy_files(self, option, source, location, destination, workers):
     def copy_files(self, option, source, location, destination):
         """
-        Make a list of files in redis and then start copying or
+        Make a list of files in db and then start copying or
         downloading files to the destination.
         """
 
         o = option
         d = destination
         lo = location
-        # command_key = f"{o}__{source}__{lo}__{d}__{workers}"
         command_key = f"{o}__{source}__{lo}__{d}"
 
-        # Make list of source files to Redis
-        redis_key = self.save_files_list_in_redis(o, source, lo, command_key)
+        # Make list of source files to db
+        db_key = self.save_files_list_in_db(o, source, lo, command_key)
 
-        # Download or copy source files list that we made before in Redis
-        # self.download_files_list_from_redis("d", redis_key, d, workers)
-        self.download_files_list_from_redis("d", redis_key, d)
+        # Download or copy source files list that we made before in db
+        self.download_files_list_from_db("d", db_key, d)
 
 
 def main():
@@ -754,7 +791,7 @@ ERROR, CRITICAL) and Activate logging level')
         metavar=("<SOURCE_TYPE>", "<SOURCE_ADDRESS>"),
         help="get <SOURCE_TYPE> as ['local' | 's3'] and \
 [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
-to create list of source files in Redis",
+to create list of source files in db",
     )
     group.add_argument(
         "-c",
@@ -773,9 +810,8 @@ to copy source files to destination",
     group.add_argument(
         "-d",
         nargs=2,
-        # metavar=("<REDIS_KEY>", "<DEST>", "<NUMBER_OF_WORKERS>"),
-        metavar=("<REDIS_KEY>", "<DEST>"),
-        help="read Redis and download source files safety to <DEST> \
+        metavar=("<DB_KEY>", "<DEST>"),
+        help="read db and download source files safety to <DEST> \
 which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
@@ -843,13 +879,13 @@ is not directory or not exist!"
             if not result:
                 parser.error(msg)
 
-        "Make list of source files to Redis"
-        redis_key = safe_backup.save_files_list_in_redis(
+        "Make list of source files to db"
+        db_key = safe_backup.save_files_list_in_db(
             "l",
             args.l[0],
             args.l[1],
         )
-        print(f" {redis_key = } successfully created.")
+        print(f" {db_key = } successfully created.")
 
     elif args.c:
         if not args.c[0] == "local" and not args.c[0] == "s3":
@@ -871,20 +907,14 @@ is not directory or not started with 's3:'!"
                 )
         elif not len(args.c[2]) > 3:
             parser.error("You must define the <bucket_name> after 's3:'!")
-        # if not args.c[3].isdigit() or int(args.c[3]) <= 0:
-            # parser.error(
-                # f"<NUMBER_OF_WORKERS>='{args.c[2]}' \
-# is not integer or not bigger than 0!"
-            # )
 
         "All copy functions must write down here"
-        safe_backup.copy_files("c", args.c[0], args.c[1], args.c[2]) #, args.c[3])
+        safe_backup.copy_files("c", args.c[0], args.c[1], args.c[2])
         print(f" Copy to <DEST> = {args.c[2]} successfully completed.")
 
     elif args.d:
-        # if not safe_backup.redis_db.exists(args.d[0]) == 1:
         if not DB.key_exists(self, args.d[0]) == 1:
-            parser.error(f"<REDIS_KEY>='{args.d[0]}' is not exists!")
+            parser.error(f"<DB_KEY>='{args.d[0]}' is not exists!")
         if not args.d[1].startswith("s3:"):
             if not Path(args.d[1]).is_dir():
                 parser.error(
@@ -893,18 +923,12 @@ is not directory or not started with 's3:'!"
                 )
         elif not len(args.d[1]) > 3:
             parser.error("You must define the <bucket_name> after 's3:'!")
-        # if not args.d[2].isdigit() or int(args.d[2]) <= 0:
-            # parser.error(
-                # f"<NUMBER_OF_WORKERS>='{args.d[2]}' \
-# is not integer or not bigger than 0!"
-            # )
 
-        "Download or copy source files list that we made before in Redis"
-        safe_backup.download_files_list_from_redis(
+        "Download or copy source files list that we made before in db"
+        safe_backup.download_files_list_from_db(
             "d",
             args.d[0],
             args.d[1],
-            # args.d[2],
         )
         print(f" Download to <DEST> = {args.d[1]} successfully completed.")
 
@@ -918,3 +942,5 @@ if __name__ == "__main__":
     import sys
 
     sys.exit(main())
+
+

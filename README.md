@@ -35,8 +35,8 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
 
 ## Environment variables:
 
-    $ export SBACKUP_REDIS_URL                                                   #default "127.0.0.1:6379"
-    $ export SBACKUP_REDIS_DECODE_RESPONSE                                       #default True
+    $ export SBACKUP_DB_URL                                                      #default "127.0.0.1:6379"
+    $ export SBACKUP_DB_DECODE_RESPONSE                                          #default True
     
     $ export SBACKUP_AWS_DEFAULT_REGION = <AWS_DEFAULT_REGION>                   #default None for MinIO
     $ export SBACKUP_AWS_ACCESS_KEY_ID = <AWS_ACCESS_KEY_ID>                     #MinIO/S3 access key
@@ -52,7 +52,7 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
 
     $ python3 safe_backup [-h] [-L <LOG_MODE>] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
                                                 -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> | 
-                                                -d <REDIS_KEY> <DEST>
+                                                -d <DB_KEY> <DEST>
                                                )
 
 Backup your local or s3 files safety.
@@ -63,13 +63,13 @@ Backup your local or s3 files safety.
     -h, --help          show this help message and exit
     -L <LOG_MODE>       get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL) and Activate logging level
     -l <SOURCE_TYPE> <SOURCE_ADDRESS>
-                        get <SOURCE_TYPE> as ['local' | 's3'] and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] to create list of source files in Redis
+                        get <SOURCE_TYPE> as ['local' | 's3'] and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] to create list of source files in db
                         
     -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST>
                         get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] and 
                         get <DEST> as [ <LOCAL_DIRECTORY> | s3:<BUCKET_NAME> ] to copy source files to destination
                         
-    -d <REDIS_KEY> <DEST>
-                        read Redis and download source files safety to <DEST> which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>
+    -d <DB_KEY> <DEST>
+                        read db and download source files safety to <DEST> which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>
 
 ___
