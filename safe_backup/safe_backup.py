@@ -62,8 +62,8 @@ def debug(func):
         color_log("info", f"---- Calling {func.__name__}({signature})")
         color_log(
             "info",
-            f"---- Calling {func.__name__}( \
-*args={args_repr} and **kwargs={kwargs_repr})",
+            f"---- Calling {func.__name__}(*args={args_repr} "
+            "and **kwargs={kwargs_repr})",
         )
 
         value = func(*args, **kwargs)
@@ -88,12 +88,11 @@ class DB:
 
         color_log(
             "debug",
-            f"------\n \
-            {db_url = }\n \
-            {urllib = }\n \
-            {url = }\n \
-            {DB_DECODE_RESPONSE = } \
-        ",
+            f"------\n"
+            "\t{db_url = }\n"
+            "\t{urllib = }\n"
+            "\t{url = }\n"
+            "\t{DB_DECODE_RESPONSE = }",
         )
 
         self.db = redis.StrictRedis(
@@ -193,11 +192,10 @@ class SafeBackup:
             color_log("debug", f" *********** key = {key} ######### ")
             commands = key.split(":")
             command_array = commands[2].split("__")
-            color_log("debug", f" *********** commands = {commands} ######### ")
+            color_log("debug", f" *********** commands = {commands} ####### ")
             color_log(
                 "debug",
-                f" *********** command_array = \
-{command_array} ######### ",
+                f" *********** command_array = {command_array} ####### ",
             )
             if command_array[0] == "l":
                 self.save_files_list_in_db(
@@ -360,8 +358,7 @@ class SafeBackup:
             if page["IsTruncated"]:
                 color_log(
                     "debug",
-                    f" **** NextMarker ******** \
-{page['NextMarker']}",
+                    f" **** NextMarker ******** {page['NextMarker']}",
                 )
             else:
                 color_log("debug", " **** NextMarker ******** ")
@@ -392,8 +389,8 @@ class SafeBackup:
             else:
                 return (
                     False,
-                    f"Something went wrong in s3:<BUCKET_NAME>= \
-'{bucket_name}'! Error is \"{e}\"",
+                    f"Something went wrong in s3:<BUCKET_NAME>="
+                    "'{bucket_name}'! Error is '{e}'",
                 )
 
     @debug
@@ -423,8 +420,7 @@ class SafeBackup:
             case "s3":
                 color_log(
                     "debug",
-                    " *** save_files_list_in_db() \
-=> Source is a s3.",
+                    " *** save_files_list_in_db() => Source is a s3.",
                 )
                 bucket = self.s3_source.Bucket(location)
                 if not intruption:
@@ -452,57 +448,55 @@ class SafeBackup:
             case "local":
                 color_log(
                     "debug",
-                    " *** save_files_list_in_db() \
-=> Source is a local.",
+                    " *** save_files_list_in_db() => Source is a local.",
                 )
                 if Path(location).is_dir() and Path(location).exists:
                     color_log(
                         "debug",
-                        " *** save_files_list_in_db() => \
-Location is a directory.",
+                        " *** save_files_list_in_db() => "
+                        "Location is a directory.",
                     )
                     root_path = location.split(os.sep)[-1]
                     files_path = root_path
                     for folderName, subfolders, filenames in os.walk(location):
                         color_log(
                             "debug",
-                            " *** save_files_...() => 1 \
------------------------------------------------",
+                            " *** save_files_...() => 1"
+                            "-----------------------------------------------",
                         )
                         color_log(
                             "debug",
-                            " *** save_files_...() => \
-The folderName folder is "
+                            " *** save_files_...() => The folderName is "
                             + folderName,
                         )
                         color_log(
                             "debug",
-                            " *** save_files_...() => \
-The folderName.split(os.sep)[-1] folder is "
+                            " *** save_files_...() => "
+                            "The folderName.split(os.sep)[-1] folder is "
                             + folderName.split(os.sep)[-1],
                         )
                         color_log(
                             "debug",
-                            " *** save_files_...() => \
-The files_path folder is "
+                            " *** save_files_...() => "
+                            "The files_path folder is "
                             + files_path,
                         )
                         color_log(
                             "debug",
-                            " *** save_files_...() => \
-The files_path.split(os.sep)[-1] folder is "
+                            " *** save_files_...() => "
+                            "The files_path.split(os.sep)[-1] folder is "
                             + files_path.split(os.sep)[-1],
                         )
                         color_log(
                             "debug",
-                            " *** save_files_...() => \
-2 ----------------------------------------------------",
+                            " *** save_files_...() => "
+                            "2 ---------------------------------------------",
                         )
                         if not folderName.split(os.sep)[-1] == files_path:
                             color_log(
                                 "debug",
-                                " *** save_files_...() => \
-The folderName.split(os.sep)[-2] folder is "
+                                " *** save_files_...() => "
+                                "The folderName.split(os.sep)[-2] folder is "
                                 + folderName.split(os.sep)[-2],
                             )
                             if (
@@ -514,8 +508,8 @@ The folderName.split(os.sep)[-2] folder is "
                                 files_path += f"/{f}"
                                 color_log(
                                     "debug",
-                                    " *** save_files_...() => if : \
-The current files_path is "
+                                    " *** save_files_...() => if : "
+                                    "The current files_path is "
                                     + files_path,
                                 )
                             elif (
@@ -526,8 +520,8 @@ The current files_path is "
                                 files_path = f"{parent_path}/{f}"
                                 color_log(
                                     "debug",
-                                    " *** save_files_...() => \
-elif 1: The current files_path is "
+                                    " *** save_files_...() => "
+                                    "elif 1: The current files_path is "
                                     + files_path,
                                 )
                             elif folderName.split(os.sep)[-2] == root_path:
@@ -535,8 +529,8 @@ elif 1: The current files_path is "
                                 files_path = f"{root_path}/{f}"
                                 color_log(
                                     "debug",
-                                    " *** save_files_...() => \
-elif 2: The current files_path is "
+                                    " *** save_files_...() => "
+                                    "elif 2: The current files_path is "
                                     + files_path,
                                 )
 
@@ -553,12 +547,11 @@ elif 2: The current files_path is "
                             DB.set_add(self, db_key, file_path)
                     color_log(
                         "debug",
-                        f" *** save_files_...() \
-=> {DB.get_keys(self)}",
+                        f" *** save_files_...() => {DB.get_keys(self)}",
                     )
                     print(
-                        f"List of files created in '{db_key}' \
-db key successfuly."
+                        f"List of files created in '{db_key}' "
+                        "db key successfuly."
                     )
                 else:
                     print("location is not directory or not exist.")
@@ -577,8 +570,7 @@ db key successfuly."
         source = db_key.split(":")
         color_log(
             "debug",
-            f" *** download_files_...()=> from {source =} to \
-{destination =}",
+            f" *** download_files_...()=> from {source =} to {destination =}",
         )
 
         db_key_worker = f"{db_key}-{option}__{destination}"
@@ -589,9 +581,9 @@ db key successfuly."
             if source[0] == "local" and not destination.startswith("s3:"):
                 color_log(
                     "debug",
-                    f"*** <local to local> *** download_files_...()=> \
-source = {Path(source[1]).parent}/{member} \
---> dest = {destination}/{member}",
+                    f"*** <local to local> *** download_files_...()=> "
+                    "source = {Path(source[1]).parent}/{member} "
+                    "--> dest = {destination}/{member}",
                 )
                 parent = Path(f"{destination}/{member}").parent
                 if not os.path.exists(parent):
@@ -620,14 +612,14 @@ source = {Path(source[1]).parent}/{member} \
                 s3_dest_bucket = destination.split(":")[1]
                 color_log(
                     "debug",
-                    f" *** <s3 to s3> *** {member = } --> \
-dest = s3:{s3_dest_bucket}",
+                    f" *** <s3 to s3> *** {member = } --> "
+                    "dest = s3:{s3_dest_bucket}",
                 )
 
                 color_log(
                     "debug",
-                    f" *** <s3 to s3> *** {source[1] = } -> \
-./{destination}/{member}",
+                    f" *** <s3 to s3> *** {source[1] = } -> "
+                    "./{destination}/{member}",
                 )
 
                 # upload to s3 destination
@@ -635,8 +627,8 @@ dest = s3:{s3_dest_bucket}",
                 try:
                     color_log(
                         "debug",
-                        f" ** <s3 to s3> ** \
-{self.s3_dest_client.list_buckets()['Buckets'] = }",
+                        f" ** <s3 to s3> ** "
+                        "{self.s3_dest_client.list_buckets()['Buckets'] = }",
                     )
                     self.s3_dest_client.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
@@ -648,8 +640,8 @@ dest = s3:{s3_dest_bucket}",
                         self.__region_dest,
                     ):
                         print(
-                            "  ######  There was a problem to \
-create destination bucket!"
+                            "  ######  There was a problem to "
+                            "create destination bucket!"
                         )
                         exit(1)
 
@@ -669,20 +661,20 @@ create destination bucket!"
                 s3_dest_bucket = destination.split(":")[1]
                 color_log(
                     "debug",
-                    f" *** <local to s3> *** {member = } --> \
-dest = s3:{s3_dest_bucket}",
+                    f" *** <local to s3> *** {member = } --> "
+                    "dest = s3:{s3_dest_bucket}",
                 )
                 color_log(
                     "debug",
-                    f" *** <local to s3> *** {source[1] = } -> \
-./{destination}/{member}",
+                    f" *** <local to s3> *** {source[1] = } -> "
+                    "./{destination}/{member}",
                 )
                 # Check destination bucket and create it if not exists
                 try:
                     color_log(
                         "debug",
-                        f" ** <local to s3> ** \
-{self.s3_dest_client.list_buckets()['Buckets'] = }",
+                        f" ** <local to s3> ** "
+                        "{self.s3_dest_client.list_buckets()['Buckets'] = }",
                     )
                     self.s3_dest_client.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
@@ -692,15 +684,15 @@ dest = s3:{s3_dest_bucket}",
                         self.s3_dest_client, s3_dest_bucket, self.__region_dest
                     ):
                         print(
-                            "  ######  There was a problem to \
-create destination bucket!"
+                            "  ######  There was a problem to "
+                            "create destination bucket!"
                         )
                         exit(1)
 
                 color_log(
                     "debug",
-                    f" *** elif-2 *** {member = } -> \
-{member = }",
+                    f" *** elif-2 *** {member = } -> "
+                    "{member = }",
                 )
                 source_path_parent = Path(source[1]).parent
                 if os.path.exists(Path(f"./{source_path_parent}/{member}")):
@@ -714,8 +706,8 @@ create destination bucket!"
                         print(f" There was an error: {e}")
                 else:
                     print(
-                        f" The file ./{source_path_parent}/{member} \
-not exists!"
+                        f" The file ./{source_path_parent}/{member} "
+                        "not exists!"
                     )
 
             # Backup from s3 to local
@@ -766,8 +758,8 @@ def main():
         "-L",
         nargs=1,
         metavar=("<LOG_MODE>"),
-        help="Get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, \
-ERROR, CRITICAL) and Activate logging level",
+        help="Get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, "
+             "ERROR, CRITICAL) and Activate logging level",
     )
 
     group = parser.add_mutually_exclusive_group(required=True)
@@ -776,9 +768,9 @@ ERROR, CRITICAL) and Activate logging level",
         "-l",
         nargs=2,
         metavar=("<SOURCE_TYPE>", "<SOURCE_ADDRESS>"),
-        help="get <SOURCE_TYPE> as ['local' | 's3'] and \
-[ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] \
-to create list of source files in db",
+        help="get <SOURCE_TYPE> as ['local' | 's3'] and "
+             "[<SOURCE_DIRECTORY> | <BUCKET_NAME>] "
+             "to create list of source files in db",
     )
     group.add_argument(
         "-c",
@@ -788,17 +780,17 @@ to create list of source files in db",
             "<SOURCE_ADDRESS>",
             "<DEST>",
         ),
-        help="get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as \
-[ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] and \
-get <DEST> as [ <LOCAL_DIRECTORY> | s3:<BUCKET_NAME> ] \
-to copy source files to destination",
+        help="get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as "
+             "[<SOURCE_DIRECTORY> | <BUCKET_NAME>] and "
+             "get <DEST> as [<LOCAL_DIRECTORY> | s3:<BUCKET_NAME>] "
+             "to copy source files to destination",
     )
     group.add_argument(
         "-d",
         nargs=2,
         metavar=("<DB_KEY>", "<DEST>"),
-        help="read db and download source files safety to <DEST> \
-which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
+        help="read db and download source files safety to <DEST> "
+             "which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
     args = parser.parse_args()
@@ -830,8 +822,8 @@ which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
             parser.error("<SOURCE_TYPE> must be one of 'local' or 's3'")
         if args.l[0] == "local" and not Path(args.l[1]).is_dir():
             parser.error(
-                f"<SOURCE_ADDRESS>='{args.l[1]}' \
-is not directory or not exist!"
+                f"<SOURCE_ADDRESS>='{args.l[1]}' "
+                "is not directory or not exist!"
             )
         if args.l[0] == "s3":
             result, msg = safe_backup.bucket_exists(args.l[1])
@@ -851,8 +843,8 @@ is not directory or not exist!"
             parser.error("<SOURCE_TYPE> must be one of 'local' or 's3'")
         if args.c[0] == "local" and not Path(args.c[1]).is_dir():
             parser.error(
-                f"<SOURCE_ADDRESS>='{args.c[1]}' \
-is not directory or not exist!"
+                f"<SOURCE_ADDRESS>='{args.c[1]}'"
+                " is not directory or not exist!"
             )
         if args.c[0] == "s3":
             result, msg = safe_backup.bucket_exists(args.c[1])
@@ -861,13 +853,13 @@ is not directory or not exist!"
         if not args.c[2].startswith("s3:"):
             if not Path(args.c[2]).is_dir():
                 parser.error(
-                    f"<DEST>='{args.c[2]}' \
-is not directory or not started with 's3:'!"
+                    f"<DEST>='{args.c[2]}'"
+                    " is not directory or not started with 's3:'!"
                 )
         elif not len(args.c[2]) > 3:
             parser.error("You must define the <bucket_name> after 's3:'!")
 
-        "All copy functions must write down here"
+        # Copy files
         safe_backup.copy_files("c", args.c[0], args.c[1], args.c[2])
         print(f" Copy to <DEST> = {args.c[2]} successfully completed.")
 
@@ -877,8 +869,8 @@ is not directory or not started with 's3:'!"
         if not args.d[1].startswith("s3:"):
             if not Path(args.d[1]).is_dir():
                 parser.error(
-                    f"<DEST>='{args.d[1]}' \
-is not directory or not started with 's3:'!"
+                    f"<DEST>='{args.d[1]}' "
+                    "is not directory or not started with 's3:'!"
                 )
         elif not len(args.d[1]) > 3:
             parser.error("You must define the <bucket_name> after 's3:'!")
