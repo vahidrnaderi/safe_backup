@@ -30,39 +30,24 @@ import functools
 import urllib.parse
 import multiprocessing
 
+# levels => 10    -> 20   -> 30      -> 40    -> 50
+LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+FORMAT= "%(asctime)s - %(levelname)s - %(lineno)d - %(funcName)s - %(message)s"
 
-def color_log(types, message):
-    colors = {
+colors = {
         "HEADER": "\033[95m",
-        "OKBLUE": "\033[94m",
-        "OKCYAN": "\033[96m",
-        "OKGREEN": "\033[92m",
+        "INFO": "\033[94m",     # "OKBLUE"
+        "DEBUG": "\033[96m",    # "OKCYAN"
+        "NOTSET": "\033[92m",   # "OKGREEN"
         "WARNING": "\033[93m",
-        "FAIL": "\033[91m",
-        "ENDC": "\033[0m",
+        "ERROR": "\033[91m",    # "FAIL"
+        "RESET": "\033[0m",     # "ENDC"
         "BOLD": "\033[1m",
-        "UNDERLINE": "\033[4m",
+        "CRITICAL": "\033[4m",  # "UNDERLINE"
     }
-    match types:
-        case "header":
-            logging.debug(f"{colors['HEADER']}{message}{colors['ENDC']}")
-        case "notest":
-            logging.notest(f"{colors['OKGREEN']}{message}{colors['ENDC']}")
-        case "debug":
-            logging.debug(f"{colors['OKCYAN']}{message}{colors['ENDC']}")
-        case "info":
-            logging.info(f"{colors['OKBLUE']}{message}{colors['ENDC']}")
-        case "warning":
-            logging.warning(f"{colors['WARNING']}{message}{colors['ENDC']}")
-        case "error":
-            logging.error(f"{colors['FAIL']}{message}{colors['ENDC']}")
-        case "critical":
-            logging.critical(f"{colors['UNDERLINE']}{message}{colors['ENDC']}")
-        case "bold":
-            logging.bold(f"{colors['BOLD']}{message}{colors['ENDC']}")
-        case "reset":
-            logging.reset(f"{colors['ENDC']}{message}{colors['ENDC']}")
-
+    
+def color_log(log_color, message):    
+    logging.debug(f"{colors[log_color.upper()]}{message}{colors['RESET']}")
 
 def debug(func):
     """Print the function signature and return value"""
@@ -820,45 +805,18 @@ which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
 
     # disable logging
     if not args.L or args.L[0].upper() == "NOTSET":
-        logging.disable(logging.CRITICAL)
+        logging.disable()
     # activate logging level
-    else:
-        # levels => NOTSET -> DEBUG -> INFO -> WARNING -> ERROR -> CRITICAL
-        # levels =>   0    -> 10    -> 20   -> 30      -> 40    -> 50
-        match args.L[0].upper():
-            # case "NOTSET":
-            case "DEBUG":
-                logging.basicConfig(
-                    level=logging.DEBUG,
-                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
-                )
-                color_log("debug", "Start logging at DEBUG level ")
-            case "INFO":
-                logging.basicConfig(
-                    level=logging.INFO,
-                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
-                )
-                color_log("info", "Start logging at INFO level ")
-            case "WARNING":
-                logging.basicConfig(
-                    level=logging.WARNING,
-                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
-                )
-                color_log("warning", "Start logging at WARNING level ")
-            case "ERROR":
-                logging.basicConfig(
-                    level=logging.ERROR,
-                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
-                )
-                color_log("error", "Start logging at ERROR level ")
-            case "CRITICAL":
-                logging.basicConfig(
-                    level=logging.CRITICAL,
-                    format=" %(asctime)s -  %(levelname)s -  %(message)s",
-                )
-                color_log("critical", "Start logging at CRITICAL level ")
-            case _:
-                parser.error(f"<LOG_MODE>='{args.debug[0]}' is not defined!")
+    else:        
+        level=args.L[0]
+        if level.upper() in LEVELS:
+            logging.basicConfig(
+                level=logging.getLevelName(level.upper()),
+                format=FORMAT,
+            )
+            print(f"Start logging at {level.upper()} level ")
+        else:
+            parser.error(f"<LOG_MODE>='{level}' is not defined!")
 
     color_log("debug", f"main() *** {args}")
     color_log("debug", f"main() *** {args.l}")
