@@ -169,36 +169,36 @@ class SafeBackup:
         DB.db_connect(self)
         color_log("debug", f" *********** args = {args} ######### ")
 
-        self.__check_if_s3_connection_need__(args)
+        self.__check_if_s3_connection_need(args)
 
-        self.__resume_intrupting__()
+        self.__resume_intrupting()
 
     @debug
-    def __check_if_s3_connection_need__(self, args):
+    def __check_if_s3_connection_need(self, args):
         """
         Check and establish a connection if needed for S3.
         """
 
         if args.l:
             if args.l[0] == "s3":
-                self.s3_source = self.__s3_connect__("source")
+                self.s3_source = self.__s3_connect("source")
                 self.s3_source_client = self.s3_source.meta.client
         elif args.c:
             if args.c[0] == "s3":
-                self.s3_source = self.__s3_connect__("source")
+                self.s3_source = self.__s3_connect("source")
                 self.s3_source_client = self.s3_source.meta.client
 
         if args.c:
             if args.c[2].startswith("s3:"):
-                self.s3_dest = self.__s3_connect__("dest")
+                self.s3_dest = self.__s3_connect("dest")
                 self.s3_dest_client = self.s3_dest.meta.client
         elif args.d:
             if args.d[1].startswith("s3:"):
-                self.s3_dest = self.__s3_connect__("dest")
+                self.s3_dest = self.__s3_connect("dest")
                 self.s3_dest_client = self.s3_dest.meta.client
 
     @debug
-    def __resume_intrupting__(self):
+    def __resume_intrupting(self):
         """
         Check and continue if any interruption occurred.
         """
@@ -251,7 +251,7 @@ class SafeBackup:
         return DB.key_exists(self, key)
 
     @debug
-    def __s3_connect__(self, destination="source"):
+    def __s3_connect(self, destination="source"):
         """
         Connect to a given destination bucket and return a resource.
         """
@@ -298,7 +298,7 @@ class SafeBackup:
         )
 
     @debug
-    def __create_bucket__(self, s3_client, bucket_name, region=None):
+    def __create_bucket(self, s3_client, bucket_name, region=None):
         """
         Create an S3 bucket in a specified region
 
@@ -325,13 +325,13 @@ class SafeBackup:
         return True
 
     @debug
-    def __make_db_list_from_s3_pages__(self, args):
+    def __make_db_list_from_s3_pages(self, args):
         color_log("debug", args[1]["Key"])
         color_log("debug", args)
         DB.set_add(self, args[0], args[1]["Key"])
 
     @debug
-    def __multiprocess__(self, db_key, page_contents):
+    def __multiprocess(self, db_key, page_contents):
         processes = []
         for content in page_contents:
             args = [
@@ -346,7 +346,7 @@ class SafeBackup:
             p.join()
 
     @debug
-    def __s3_list_paginator__(
+    def __s3_list_paginator(
         self,
         bucket,
         command_key,
@@ -387,7 +387,7 @@ class SafeBackup:
                     f"{db_key}:{command_key}:marker_sbackup",
                     page["Marker"],
                 )
-                self.__multiprocess__(db_key, page["Contents"])
+                self.__multiprocess(db_key, page["Contents"])
         else:
             DB.delete(self, f"{db_key}:{command_key}:marker_sbackup")
 
@@ -444,23 +444,23 @@ class SafeBackup:
                 bucket = self.s3_source.Bucket(location)
                 if not intruption:
                     if option == "l":
-                        db_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator(
                             bucket, f"{option}__{source}__{location}"
                         )
                     elif option == "c":
-                        db_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator(
                             bucket,
                             command_key,
                         )
                 else:
                     if option == "l":
-                        db_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator(
                             bucket,
                             f"{option}__{source}__{location}",
                             first_marker=first_marker,
                         )
                     elif option == "c":
-                        db_key = self.__s3_list_paginator__(
+                        db_key = self.__s3_list_paginator(
                             bucket, command_key, first_marker=first_marker
                         )
 
@@ -657,7 +657,7 @@ dest = s3:{s3_dest_bucket}",
                 except ClientError:
                     # The bucket does not exist or you have no access.
                     # Create the destination bucket.
-                    if not self.__create_bucket__(
+                    if not self.__create_bucket(
                         self.s3_dest_client,
                         s3_dest_bucket,
                         self.__region_dest,
@@ -703,7 +703,7 @@ dest = s3:{s3_dest_bucket}",
                 except ClientError:
                     # The bucket does not exist or you have no access.
                     # Create the destination bucket.
-                    if not self.__create_bucket__(
+                    if not self.__create_bucket(
                         self.s3_dest_client, s3_dest_bucket, self.__region_dest
                     ):
                         print(
