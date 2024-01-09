@@ -32,7 +32,7 @@ import multiprocessing
 
 # levels => 10    -> 20   -> 30      -> 40    -> 50
 LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-FORMAT= "%(asctime)s - %(levelname)s - %(lineno)d - %(funcName)s - %(message)s"
+FORMAT= "%(asctime)s - %(levelname)s - %(message)s"
 
 colors = {
         "HEADER": "\033[95m",
@@ -42,42 +42,83 @@ colors = {
         "WARNING": "\033[93m",
         "ERROR": "\033[91m",    # "FAIL"
         "RESET": "\033[0m",     # "ENDC"
-        "BOLD": "\033[1m",
-        "CRITICAL": "\033[4m",  # "UNDERLINE"
+        "CRITICAL": "\033[1m",  # "BOLD"
+        "UNDERLINE": "\033[4m", # "UNDERLINE"
     }
     
-def color_log(log_color, message):    
-    logging.debug(f"{colors[log_color.upper()]}{message}{colors['RESET']}")
+def color_log(loglevel="CRITICAL", message="DEBUG message"):
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if isinstance(numeric_level, int):
+        msg = f"{colors[loglevel.upper()]}{message}{colors['RESET']}"
+        # print(f"{msg = } \n {loglevel.upper() = } \n ")
+        logging.log(
+            numeric_level, 
+            msg,
+        )
+    else:
+        message = f"{loglevel = } args in color_log() function is wrong!"
+        msg = f"{colors['ERROR']}{message}{colors['RESET']}"
+        logging.log(40, msg)
+    
+# Debugging all class methods
+def debug_methods(cls):
+    for name, value in vars(cls).items():
+        if callable(value):
+            setattr(cls, name, debug_method(value))
+    return cls
 
-def debug(func):
+def debug_method(func):
     """Print the function signature and return value"""
-
-    @functools.wraps(func)
+    
     def wrapper_debug(*args, **kwargs):
         args_repr = [repr(a) for a in args]
         kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
         signature = ", ".join(args_repr + kwargs_repr)
 
         # Do something before
-        color_log("info", f"---- Calling {func.__name__}({signature})")
         color_log(
-            "info",
+            'info',
             f"---- Calling {func.__name__}(*args={args_repr} "
-            "and **kwargs={kwargs_repr})",
+            f"and **kwargs={kwargs_repr})",
         )
 
         value = func(*args, **kwargs)
 
         # Do something after
-        color_log("info", f"---- End of {func.__name__!r} returned {value!r}")
+        color_log('info',f"#### End of {func.__name__!r} returned {value!r}")
 
         return value
-
     return wrapper_debug
 
+# def debug(func):
+    # """Print the function signature and return value"""
 
+    # @functools.wraps(func)
+    # def wrapper_debug(*args, **kwargs):
+        # args_repr = [repr(a) for a in args]
+        # kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+        # signature = ", ".join(args_repr + kwargs_repr)
+
+        # # Do something before
+        # color_log("info", f"---- Calling {func.__name__}({signature})")
+        # color_log(
+            # "info",
+            # f"---- Calling {func.__name__}(*args={args_repr} "
+            # "and **kwargs={kwargs_repr})",
+        # )
+
+        # value = func(*args, **kwargs)
+
+        # # Do something after
+        # color_log("info", f"---- End of {func.__name__!r} returned {value!r}")
+
+        # return value
+
+    # return wrapper_debug
+
+@debug_methods
 class DB:
-    @debug
+
     def db_connect(self):
         DB_DECODE_RESPONSE = os.getenv("SBACKUP_DB_DECODE_RESPONSE", True)
 
@@ -89,10 +130,10 @@ class DB:
         color_log(
             "debug",
             f"------\n"
-            "\t{db_url = }\n"
-            "\t{urllib = }\n"
-            "\t{url = }\n"
-            "\t{DB_DECODE_RESPONSE = }",
+            f"\t{db_url = }\n"
+            f"\t{urllib = }\n"
+            f"\t{url = }\n"
+            f"\t{DB_DECODE_RESPONSE = }",
         )
 
         self.db = redis.StrictRedis(
@@ -101,49 +142,39 @@ class DB:
             db=0,
             decode_responses=DB_DECODE_RESPONSE,
         )
-        color_log("debug", f"---- {self.db =}")
+        color_log("debug", f"---- {self.db = }")
 
-    @debug
     def key_exists(self, key):
         return self.db.exists(key)
 
-    @debug
     def find(self, cursor, pattern):
         return self.db.scan(cursor, pattern)[1]
 
-    @debug
     def get_elements(self, key, cursor):
         return self.db.sscan(key, cursor)[1]
 
-    @debug
     def get_keys(self):
         return self.db.keys()
 
-    @debug
     def delete(self, key):
         return self.db.delete(key)
 
-    @debug
     def set(self, key, value):
         return self.db.set(key, value)
 
-    @debug
     def get(self, key):
         return self.db.get(key)
 
-    @debug
     def set_add(self, key, value):
         return self.db.sadd(key, value)
 
-    @debug
     def set_remove(self, key, value):
         return self.db.srem(key, value)
 
-
+@debug_methods
 class SafeBackup:
     __region_dest = None
 
-    @debug
     def __init__(self, args):
         """
         Connect to db and S3 if needed then check for intruption
@@ -157,7 +188,6 @@ class SafeBackup:
 
         self.__resume_intrupting()
 
-    @debug
     def __check_if_s3_connection_need(self, args):
         """
         Check and establish a connection if needed for S3.
@@ -181,7 +211,6 @@ class SafeBackup:
                 self.s3_dest = self.__s3_connect("dest")
                 self.s3_dest_client = self.s3_dest.meta.client
 
-    @debug
     def __resume_intrupting(self):
         """
         Check and continue if any interruption occurred.
@@ -190,12 +219,13 @@ class SafeBackup:
         db_keys = DB.find(self, 0, "*:marker_sbackup")
         for key in db_keys:
             color_log("debug", f" *********** key = {key} ######### ")
-            commands = key.split(":")
+            # commands = key.split(":")
+            commands = key.split("-")
             command_array = commands[2].split("__")
-            color_log("debug", f" *********** commands = {commands} ####### ")
+            color_log("debug", f" *********** {commands = } ####### ")
             color_log(
                 "debug",
-                f" *********** command_array = {command_array} ####### ",
+                f" *********** {command_array = } ####### ",
             )
             match command_array[0]:
                 case "l":
@@ -230,11 +260,9 @@ class SafeBackup:
             color_log("debug", f" *********** {keys} + {command} ######### ")
             self.download_files_list_from_db("d", keys[0], command[1])
 
-    @debug
     def check_db_key_exists(self, key):
         return DB.key_exists(self, key)
 
-    @debug
     def __s3_connect(self, destination="source"):
         """
         Connect to a given destination bucket and return a resource.
@@ -281,7 +309,6 @@ class SafeBackup:
             verify=False,
         )
 
-    @debug
     def __create_bucket(self, s3_client, bucket_name, region=None):
         """
         Create an S3 bucket in a specified region
@@ -308,13 +335,11 @@ class SafeBackup:
             return False
         return True
 
-    @debug
     def __make_db_list_from_s3_pages(self, args):
         color_log("debug", args[1]["Key"])
         color_log("debug", args)
         DB.set_add(self, args[0], args[1]["Key"])
 
-    @debug
     def __multiprocess(self, db_key, page_contents):
         processes = []
         for content in page_contents:
@@ -322,14 +347,13 @@ class SafeBackup:
                 [db_key, content],
             ]
             p = multiprocessing.Process(
-                target=self.__make_db_list_from_s3_pages__, args=args
+                target=self.__make_db_list_from_s3_pages, args=args
             )
             processes.append(p)
             p.start()
         for p in processes:
             p.join()
 
-    @debug
     def __s3_list_paginator(
         self,
         bucket,
@@ -354,7 +378,7 @@ class SafeBackup:
         db_key = f"s3:{bucket.name}"
 
         for page in page_iterator:
-            color_log("debug", f" \n*********\n {page =}\n ############ \n")
+            color_log("debug", f" \n*********\n {page = }\n ############ \n")
             color_log("debug", f" **** Marker ************ {page['Marker']}")
             if page["IsTruncated"]:
                 color_log(
@@ -363,20 +387,16 @@ class SafeBackup:
                 )
             else:
                 color_log("debug", " **** NextMarker ******** ")
-
+                
+            marker_key = f"{db_key}-{command_key}-marker_sbackup"
             if "Contents" in list(page.keys()):
-                DB.set(
-                    self,
-                    f"{db_key}:{command_key}:marker_sbackup",
-                    page["Marker"],
-                )
+                DB.set(self, marker_key, page["Marker"])
                 self.__multiprocess(db_key, page["Contents"])
         else:
-            DB.delete(self, f"{db_key}:{command_key}:marker_sbackup")
+            DB.delete(self, marker_key)
 
         return db_key
 
-    @debug
     def bucket_exists(self, bucket_name):
         try:
             self.s3_source_client.head_bucket(Bucket=bucket_name)
@@ -391,10 +411,9 @@ class SafeBackup:
                 return (
                     False,
                     f"Something went wrong in s3:<BUCKET_NAME>="
-                    "'{bucket_name}'! Error is '{e}'",
+                    f"'{bucket_name}'! Error is '{e}'",
                 )
 
-    @debug
     def save_files_list_in_db(
         self,
         option,
@@ -554,7 +573,6 @@ class SafeBackup:
                 print("Source is not valied.")
         return db_key
 
-    @debug
     def download_files_list_from_db(
         self,
         option,
@@ -564,7 +582,7 @@ class SafeBackup:
         source = db_key.split(":")
         color_log(
             "debug",
-            f" *** download_files_...()=> from {source =} to {destination =}",
+            f" *** download_files_...()=> from {source = } to {destination = }",
         )
 
         db_key_worker = f"{db_key}-{option}__{destination}"
@@ -576,8 +594,8 @@ class SafeBackup:
                 color_log(
                     "debug",
                     f"*** <local to local> *** download_files_...()=> "
-                    "source = {Path(source[1]).parent}/{member} "
-                    "--> dest = {destination}/{member}",
+                    f"source = {Path(source[1]).parent}/{member} "
+                    f"--> dest = {destination}/{member}",
                 )
                 parent = Path(f"{destination}/{member}").parent
                 if not os.path.exists(parent):
@@ -607,13 +625,13 @@ class SafeBackup:
                 color_log(
                     "debug",
                     f" *** <s3 to s3> *** {member = } --> "
-                    "dest = s3:{s3_dest_bucket}",
+                    f"dest = s3:{s3_dest_bucket}",
                 )
 
                 color_log(
                     "debug",
                     f" *** <s3 to s3> *** {source[1] = } -> "
-                    "./{destination}/{member}",
+                    f"./{destination}/{member}",
                 )
 
                 # upload to s3 destination
@@ -622,7 +640,7 @@ class SafeBackup:
                     color_log(
                         "debug",
                         f" ** <s3 to s3> ** "
-                        "{self.s3_dest_client.list_buckets()['Buckets'] = }",
+                        f"{self.s3_dest_client.list_buckets()['Buckets'] = }",
                     )
                     self.s3_dest_client.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
@@ -656,19 +674,19 @@ class SafeBackup:
                 color_log(
                     "debug",
                     f" *** <local to s3> *** {member = } --> "
-                    "dest = s3:{s3_dest_bucket}",
+                    f"dest = s3:{s3_dest_bucket}",
                 )
                 color_log(
                     "debug",
                     f" *** <local to s3> *** {source[1] = } -> "
-                    "./{destination}/{member}",
+                    f"./{destination}/{member}",
                 )
                 # Check destination bucket and create it if not exists
                 try:
                     color_log(
                         "debug",
                         f" ** <local to s3> ** "
-                        "{self.s3_dest_client.list_buckets()['Buckets'] = }",
+                        f"{self.s3_dest_client.list_buckets()['Buckets'] = }",
                     )
                     self.s3_dest_client.head_bucket(Bucket=s3_dest_bucket)
                 except ClientError:
@@ -686,7 +704,7 @@ class SafeBackup:
                 color_log(
                     "debug",
                     f" *** elif-2 *** {member = } -> "
-                    "{member = }",
+                    f"{member = }",
                 )
                 source_path_parent = Path(source[1]).parent
                 if os.path.exists(Path(f"./{source_path_parent}/{member}")):
@@ -724,7 +742,6 @@ class SafeBackup:
         else:
             DB.delete(self, f"{db_key_worker}-work_sbackup")
 
-    @debug
     def copy_files(self, option, source, location, destination):
         """
         Make a list of files in db and then start copying or
@@ -751,8 +768,8 @@ def main():
     parser.add_argument(
         "-L",
         nargs=1,
-        metavar=("<LOG_MODE>"),
-        help="Get <LOG_MODE> (NOTSET, DEBUG, INFO, WARNING, "
+        metavar=("<LOG_LEVEL>"),
+        help="Get <LOG_LEVEL> (NOTSET, DEBUG, INFO, WARNING, "
              "ERROR, CRITICAL) and Activate logging level",
     )
 
@@ -794,20 +811,21 @@ def main():
         logging.disable()
     # activate logging level
     else:        
-        level=args.L[0]
-        if level.upper() in LEVELS:
+        loglevel=args.L[0].upper()
+        numeric_level = getattr(logging, loglevel, None)
+        if isinstance(numeric_level, int):
             logging.basicConfig(
-                level=logging.getLevelName(level.upper()),
+                level=numeric_level,
                 format=FORMAT,
             )
-            print(f"Start logging at {level.upper()} level ")
+            color_log(loglevel, f"Start logging at {loglevel} level ")
         else:
-            parser.error(f"<LOG_MODE>='{level}' is not defined!")
+            parser.error(f"<LOG_LEVEL>='{args.L[0]}' is not defined!")
 
-    color_log("debug", f"main() *** {args}")
-    color_log("debug", f"main() *** {args.l}")
-    color_log("debug", f"main() *** {args.c}")
-    color_log("debug", f"main() *** {args.d}")
+    color_log("debug", f"main() *** {args = }")
+    color_log("debug", f"main() *** {args.l = }")
+    color_log("debug", f"main() *** {args.c = }")
+    color_log("debug", f"main() *** {args.d = }")
 
     safe_backup = SafeBackup(args)
 
