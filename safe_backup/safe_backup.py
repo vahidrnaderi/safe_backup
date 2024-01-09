@@ -197,29 +197,30 @@ class SafeBackup:
                 "debug",
                 f" *********** command_array = {command_array} ####### ",
             )
-            if command_array[0] == "l":
-                self.save_files_list_in_db(
-                    "l",
-                    command_array[1],
-                    command_array[2],
-                    intruption=True,
-                    first_marker=DB.get(self, key),
-                )
-            elif command_array[0] == "c":
-                self.save_files_list_in_db(
-                    "c",
-                    command_array[1],
-                    command_array[2],
-                    commands[2],
-                    intruption=True,
-                    first_marker=DB.get(self, key),
-                )
-                self.download_files_list_from_db(
-                    "d",
-                    f"{commands[0]}:{commands[1]}",
-                    command_array[3],
-                    command_array[4],
-                )
+            match command_array[0]:
+                case "l":
+                    self.save_files_list_in_db(
+                        "l",
+                        command_array[1],
+                        command_array[2],
+                        intruption=True,
+                        first_marker=DB.get(self, key),
+                    )
+                case "c":
+                    self.save_files_list_in_db(
+                        "c",
+                        command_array[1],
+                        command_array[2],
+                        commands[2],
+                        intruption=True,
+                        first_marker=DB.get(self, key),
+                    )
+                    self.download_files_list_from_db(
+                        "d",
+                        f"{commands[0]}:{commands[1]}",
+                        command_array[3],
+                        command_array[4],
+                    )
 
         db_keys = DB.find(self, 0, "*-work_sbackup")
         for key in db_keys:
@@ -459,6 +460,8 @@ class SafeBackup:
                     root_path = location.split(os.sep)[-1]
                     files_path = root_path
                     for folderName, subfolders, filenames in os.walk(location):
+                        fn_split = folderName.split(os.sep)
+                        fp_split = files_path.split(os.sep)
                         color_log(
                             "debug",
                             " *** save_files_...() => 1"
@@ -473,7 +476,7 @@ class SafeBackup:
                             "debug",
                             " *** save_files_...() => "
                             "The folderName.split(os.sep)[-1] folder is "
-                            + folderName.split(os.sep)[-1],
+                            + fn_split[-1],
                         )
                         color_log(
                             "debug",
@@ -485,48 +488,39 @@ class SafeBackup:
                             "debug",
                             " *** save_files_...() => "
                             "The files_path.split(os.sep)[-1] folder is "
-                            + files_path.split(os.sep)[-1],
+                            + fp_split[-1],
                         )
                         color_log(
                             "debug",
                             " *** save_files_...() => "
                             "2 ---------------------------------------------",
                         )
-                        if not folderName.split(os.sep)[-1] == files_path:
+                        if not fn_split[-1] == files_path:
                             color_log(
                                 "debug",
                                 " *** save_files_...() => "
                                 "The folderName.split(os.sep)[-2] folder is "
-                                + folderName.split(os.sep)[-2],
+                                + fn_split[-2],
                             )
-                            if (
-                                folderName.split(os.sep)[-2]
-                                == files_path.split(os.sep)[-1]
-                            ):
+                            if fn_split[-2] == fp_split[-1]:
                                 parent_path = files_path
-                                f = folderName.split(os.sep)[-1]
-                                files_path += f"/{f}"
+                                files_path += f"/{fn_split[-1]}"
                                 color_log(
                                     "debug",
                                     " *** save_files_...() => if : "
                                     "The current files_path is "
                                     + files_path,
                                 )
-                            elif (
-                                folderName.split(os.sep)[-2]
-                                == files_path.split(os.sep)[-2]
-                            ):
-                                f = folderName.split(os.sep)[-1]
-                                files_path = f"{parent_path}/{f}"
+                            elif fn_split[-2] == fp_split[-2]:
+                                files_path = f"{parent_path}/{fn_split[-1]}"
                                 color_log(
                                     "debug",
                                     " *** save_files_...() => "
                                     "elif 1: The current files_path is "
                                     + files_path,
                                 )
-                            elif folderName.split(os.sep)[-2] == root_path:
-                                f = folderName.split(os.sep)[-1]
-                                files_path = f"{root_path}/{f}"
+                            elif fn_split[-2] == root_path:
+                                files_path = f"{root_path}/{fn_split[-1]}"
                                 color_log(
                                     "debug",
                                     " *** save_files_...() => "
