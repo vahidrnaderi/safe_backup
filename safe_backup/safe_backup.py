@@ -26,40 +26,41 @@ from botocore.client import ClientError
 from pathlib import Path
 import redis
 import argparse
-import functools
 import urllib.parse
 import multiprocessing
 
 # levels => 10    -> 20   -> 30      -> 40    -> 50
-LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-FORMAT= "%(asctime)s - %(levelname)s - %(message)s"
+# LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 
 colors = {
-        "HEADER": "\033[95m",
-        "INFO": "\033[94m",     # "OKBLUE"
-        "DEBUG": "\033[96m",    # "OKCYAN"
-        "NOTSET": "\033[92m",   # "OKGREEN"
-        "WARNING": "\033[93m",
-        "ERROR": "\033[91m",    # "FAIL"
-        "RESET": "\033[0m",     # "ENDC"
-        "CRITICAL": "\033[1m",  # "BOLD"
-        "UNDERLINE": "\033[4m", # "UNDERLINE"
-    }
-    
+    "HEADER": "\033[95m",
+    "INFO": "\033[94m",  # "OKBLUE"
+    "DEBUG": "\033[96m",  # "OKCYAN"
+    "NOTSET": "\033[92m",  # "OKGREEN"
+    "WARNING": "\033[93m",
+    "ERROR": "\033[91m",  # "FAIL"
+    "RESET": "\033[0m",  # "ENDC"
+    "CRITICAL": "\033[1m",  # "BOLD"
+    "UNDERLINE": "\033[4m",  # "UNDERLINE"
+}
+
+
 def color_log(loglevel="CRITICAL", message="DEBUG message"):
     numeric_level = getattr(logging, loglevel.upper(), None)
     if isinstance(numeric_level, int):
         msg = f"{colors[loglevel.upper()]}{message}{colors['RESET']}"
         # print(f"{msg = } \n {loglevel.upper() = } \n ")
         logging.log(
-            numeric_level, 
+            numeric_level,
             msg,
         )
     else:
         message = f"{loglevel = } args in color_log() function is wrong!"
         msg = f"{colors['ERROR']}{message}{colors['RESET']}"
         logging.log(40, msg)
-    
+
+
 # Debugging all class methods
 def debug_methods(cls):
     for name, value in vars(cls).items():
@@ -67,17 +68,17 @@ def debug_methods(cls):
             setattr(cls, name, debug_method(value))
     return cls
 
+
 def debug_method(func):
     """Print the function signature and return value"""
-    
+
     def wrapper_debug(*args, **kwargs):
         args_repr = [repr(a) for a in args]
         kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
-        signature = ", ".join(args_repr + kwargs_repr)
 
         # Do something before
         color_log(
-            'info',
+            "info",
             f"---- Calling {func.__name__}(*args={args_repr} "
             f"and **kwargs={kwargs_repr})",
         )
@@ -85,40 +86,42 @@ def debug_method(func):
         value = func(*args, **kwargs)
 
         # Do something after
-        color_log('info',f"#### End of {func.__name__!r} returned {value!r}")
+        color_log("info", f"#### End of {func.__name__!r} returned {value!r}")
 
         return value
+
     return wrapper_debug
 
+
 # def debug(func):
-    # """Print the function signature and return value"""
+# """Print the function signature and return value"""
 
-    # @functools.wraps(func)
-    # def wrapper_debug(*args, **kwargs):
-        # args_repr = [repr(a) for a in args]
-        # kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
-        # signature = ", ".join(args_repr + kwargs_repr)
+# @functools.wraps(func)
+# def wrapper_debug(*args, **kwargs):
+# args_repr = [repr(a) for a in args]
+# kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+# signature = ", ".join(args_repr + kwargs_repr)
 
-        # # Do something before
-        # color_log("info", f"---- Calling {func.__name__}({signature})")
-        # color_log(
-            # "info",
-            # f"---- Calling {func.__name__}(*args={args_repr} "
-            # "and **kwargs={kwargs_repr})",
-        # )
+# # Do something before
+# color_log("info", f"---- Calling {func.__name__}({signature})")
+# color_log(
+# "info",
+# f"---- Calling {func.__name__}(*args={args_repr} "
+# "and **kwargs={kwargs_repr})",
+# )
 
-        # value = func(*args, **kwargs)
+# value = func(*args, **kwargs)
 
-        # # Do something after
-        # color_log("info", f"---- End of {func.__name__!r} returned {value!r}")
+# # Do something after
+# color_log("info", f"---- End of {func.__name__!r} returned {value!r}")
 
-        # return value
+# return value
 
-    # return wrapper_debug
+# return wrapper_debug
+
 
 @debug_methods
 class DB:
-
     def db_connect(self):
         DB_DECODE_RESPONSE = os.getenv("SBACKUP_DB_DECODE_RESPONSE", True)
 
@@ -170,6 +173,7 @@ class DB:
 
     def set_remove(self, key, value):
         return self.db.srem(key, value)
+
 
 @debug_methods
 class SafeBackup:
@@ -387,7 +391,7 @@ class SafeBackup:
                 )
             else:
                 color_log("debug", " **** NextMarker ******** ")
-                
+
             marker_key = f"{db_key}-{command_key}-marker_sbackup"
             if "Contents" in list(page.keys()):
                 DB.set(self, marker_key, page["Marker"])
@@ -473,8 +477,7 @@ class SafeBackup:
                 if Path(location).is_dir() and Path(location).exists:
                     color_log(
                         "debug",
-                        " *** save_files_list_in_db() => "
-                        "Location is a directory.",
+                        " *** save_files_...() => Location is a directory.",
                     )
                     root_path = location.split(os.sep)[-1]
                     files_path = root_path
@@ -488,8 +491,8 @@ class SafeBackup:
                         )
                         color_log(
                             "debug",
-                            " *** save_files_...() => The folderName is "
-                            + folderName,
+                            " *** save_files_...() => "
+                            "The folderName is " + folderName,
                         )
                         color_log(
                             "debug",
@@ -500,8 +503,7 @@ class SafeBackup:
                         color_log(
                             "debug",
                             " *** save_files_...() => "
-                            "The files_path folder is "
-                            + files_path,
+                            "The files_path folder is " + files_path,
                         )
                         color_log(
                             "debug",
@@ -527,24 +529,21 @@ class SafeBackup:
                                 color_log(
                                     "debug",
                                     " *** save_files_...() => if : "
-                                    "The current files_path is "
-                                    + files_path,
+                                    "The current files_path is " + files_path,
                                 )
                             elif fn_split[-2] == fp_split[-2]:
                                 files_path = f"{parent_path}/{fn_split[-1]}"
                                 color_log(
                                     "debug",
-                                    " *** save_files_...() => "
-                                    "elif 1: The current files_path is "
-                                    + files_path,
+                                    " *** save_files_...() => elif 1: "
+                                    "The current files_path is " + files_path,
                                 )
                             elif fn_split[-2] == root_path:
                                 files_path = f"{root_path}/{fn_split[-1]}"
                                 color_log(
                                     "debug",
-                                    " *** save_files_...() => "
-                                    "elif 2: The current files_path is "
-                                    + files_path,
+                                    " *** save_files_...() => elif 2: "
+                                    "The current files_path is " + files_path,
                                 )
 
                         for filename in filenames:
@@ -562,10 +561,7 @@ class SafeBackup:
                         "debug",
                         f" *** save_files_...() => {DB.get_keys(self)}",
                     )
-                    print(
-                        f"List of files created in '{db_key}' "
-                        "db key successfuly."
-                    )
+                    print(f"Files list created in '{db_key = }' successfuly.")
                 else:
                     print("location is not directory or not exist.")
                     exit(1)
@@ -703,8 +699,7 @@ class SafeBackup:
 
                 color_log(
                     "debug",
-                    f" *** elif-2 *** {member = } -> "
-                    f"{member = }",
+                    f" *** elif-2 *** {member = } -> " f"{member = }",
                 )
                 source_path_parent = Path(source[1]).parent
                 if os.path.exists(Path(f"./{source_path_parent}/{member}")):
@@ -717,10 +712,8 @@ class SafeBackup:
                     except ClientError as e:
                         print(f" There was an error: {e}")
                 else:
-                    print(
-                        f" The file ./{source_path_parent}/{member} "
-                        "not exists!"
-                    )
+                    spp = source_path_parent
+                    print(f" The file ./{spp}/{member} not exists!")
 
             # Backup from s3 to local
             elif source[0] == "s3" and not destination.startswith("s3:"):
@@ -770,7 +763,7 @@ def main():
         nargs=1,
         metavar=("<LOG_LEVEL>"),
         help="Get <LOG_LEVEL> (NOTSET, DEBUG, INFO, WARNING, "
-             "ERROR, CRITICAL) and Activate logging level",
+        "ERROR, CRITICAL) and Activate logging level",
     )
 
     group = parser.add_mutually_exclusive_group(required=True)
@@ -780,8 +773,8 @@ def main():
         nargs=2,
         metavar=("<SOURCE_TYPE>", "<SOURCE_ADDRESS>"),
         help="get <SOURCE_TYPE> as ['local' | 's3'] and "
-             "[<SOURCE_DIRECTORY> | <BUCKET_NAME>] "
-             "to create list of source files in db",
+        "[<SOURCE_DIRECTORY> | <BUCKET_NAME>] "
+        "to create list of source files in db",
     )
     group.add_argument(
         "-c",
@@ -792,16 +785,16 @@ def main():
             "<DEST>",
         ),
         help="get <SOURCE_TYPE> as ['local' | 's3'] then <SOURCE_ADDRESS> as "
-             "[<SOURCE_DIRECTORY> | <BUCKET_NAME>] and "
-             "get <DEST> as [<LOCAL_DIRECTORY> | s3:<BUCKET_NAME>] "
-             "to copy source files to destination",
+        "[<SOURCE_DIRECTORY> | <BUCKET_NAME>] and "
+        "get <DEST> as [<LOCAL_DIRECTORY> | s3:<BUCKET_NAME>] "
+        "to copy source files to destination",
     )
     group.add_argument(
         "-d",
         nargs=2,
         metavar=("<DB_KEY>", "<DEST>"),
         help="read db and download source files safety to <DEST> "
-             "which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
+        "which can be a <LOCAL_DIRECTORY> or s3:<BUCKET_NAME>",
     )
 
     args = parser.parse_args()
@@ -810,8 +803,8 @@ def main():
     if not args.L or args.L[0].upper() == "NOTSET":
         logging.disable()
     # activate logging level
-    else:        
-        loglevel=args.L[0].upper()
+    else:
+        loglevel = args.L[0].upper()
         numeric_level = getattr(logging, loglevel, None)
         if isinstance(numeric_level, int):
             logging.basicConfig(
@@ -834,8 +827,7 @@ def main():
             parser.error("<SOURCE_TYPE> must be one of 'local' or 's3'")
         if args.l[0] == "local" and not Path(args.l[1]).is_dir():
             parser.error(
-                f"<SOURCE_ADDRESS>='{args.l[1]}' "
-                "is not directory or not exist!"
+                f"<SOURCE_ADDRESS>='{args.l[1]}' is not directory or not exist!"
             )
         if args.l[0] == "s3":
             result, msg = safe_backup.bucket_exists(args.l[1])
@@ -855,8 +847,7 @@ def main():
             parser.error("<SOURCE_TYPE> must be one of 'local' or 's3'")
         if args.c[0] == "local" and not Path(args.c[1]).is_dir():
             parser.error(
-                f"<SOURCE_ADDRESS>='{args.c[1]}'"
-                " is not directory or not exist!"
+                f"<SOURCE_ADDRESS>='{args.c[1]}' is not directory or not exist!"
             )
         if args.c[0] == "s3":
             result, msg = safe_backup.bucket_exists(args.c[1])
