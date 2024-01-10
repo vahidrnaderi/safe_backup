@@ -50,7 +50,6 @@ def color_log(loglevel="CRITICAL", message="DEBUG message"):
     numeric_level = getattr(logging, loglevel.upper(), None)
     if isinstance(numeric_level, int):
         msg = f"{colors[loglevel.upper()]}{message}{colors['RESET']}"
-        # print(f"{msg = } \n {loglevel.upper() = } \n ")
         logging.log(
             numeric_level,
             msg,
@@ -73,14 +72,12 @@ def debug_method(func):
     """Print the function signature and return value"""
 
     def wrapper_debug(*args, **kwargs):
-        args_repr = [repr(a) for a in args]
-        kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
 
         # Do something before
         color_log(
             "info",
-            f"---- Calling {func.__name__}(*args={args_repr} "
-            f"and **kwargs={kwargs_repr})",
+            f"---- Calling {func.__name__}(*args={args} "
+            f"and **kwargs={kwargs})",
         )
 
         value = func(*args, **kwargs)
@@ -91,33 +88,6 @@ def debug_method(func):
         return value
 
     return wrapper_debug
-
-
-# def debug(func):
-# """Print the function signature and return value"""
-
-# @functools.wraps(func)
-# def wrapper_debug(*args, **kwargs):
-# args_repr = [repr(a) for a in args]
-# kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
-# signature = ", ".join(args_repr + kwargs_repr)
-
-# # Do something before
-# color_log("info", f"---- Calling {func.__name__}({signature})")
-# color_log(
-# "info",
-# f"---- Calling {func.__name__}(*args={args_repr} "
-# "and **kwargs={kwargs_repr})",
-# )
-
-# value = func(*args, **kwargs)
-
-# # Do something after
-# color_log("info", f"---- End of {func.__name__!r} returned {value!r}")
-
-# return value
-
-# return wrapper_debug
 
 
 @debug_methods
@@ -223,7 +193,6 @@ class SafeBackup:
         db_keys = DB.find(self, 0, "*:marker_sbackup")
         for key in db_keys:
             color_log("debug", f" *********** key = {key} ######### ")
-            # commands = key.split(":")
             commands = key.split("-")
             command_array = commands[2].split("__")
             color_log("debug", f" *********** {commands = } ####### ")
