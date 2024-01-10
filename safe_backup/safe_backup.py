@@ -72,12 +72,10 @@ def debug_method(func):
     """Print the function signature and return value"""
 
     def wrapper_debug(*args, **kwargs):
-
         # Do something before
         color_log(
             "info",
-            f"---- Calling {func.__name__}(*args={args} "
-            f"and **kwargs={kwargs})",
+            f"---- Calling {func.__name__}(*args={args} and **kwargs={kwargs})",
         )
 
         value = func(*args, **kwargs)
