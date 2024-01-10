@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
     
 setup(
     name='safe_backup',
-    version='0.1.1',
+    version='0.1.2',
     description="This program creates a secure backup of your files from a specified directory or an object storage location.",
     long_description=long_description,
     long_description_content_type='text/markdown',
