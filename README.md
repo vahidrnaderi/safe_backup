@@ -17,7 +17,7 @@ Run MinIo container if you want make your own object storage lab and test the pr
 
 **Full Guide:**  [MinIO Object Storage for Container](https://min.io/docs/minio/container/index.html)
 
-    $ mkdir -p ${HOME}/minio/data
+    $ mkdir -p ~/minio/data
 
     $ docker run \
        -p 9000:9000 \
@@ -26,7 +26,7 @@ Run MinIo container if you want make your own object storage lab and test the pr
        --name minio1 \
        -e "MINIO_ROOT_USER=ROOTUSER" \
        -e "MINIO_ROOT_PASSWORD=CHANGEME123" \
-       -v ${HOME}/minio/data:/data \
+       -v ~/minio/data:/data \
        quay.io/minio/minio server /data --console-address ":9090"
 
 and then open 'http://localhost:9000' in your browser, login and make your access key.
@@ -49,7 +49,7 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
     $ export SBACKUP_DEST_AWS_ENDPOINT_URL = <DEST_AWS_ENDPOINT_URL>             #for MinIO set to 'http://localhost:9000'
 
 ## Install:
-    $ pip install safe_backup
+    $ pip install safe-backup
 
 ## Usage:
     $ sbackup [-h] [-L <LOG_LEVEL>] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
