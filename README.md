@@ -49,7 +49,7 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
     $ export SBACKUP_DEST_AWS_ENDPOINT_URL = <DEST_AWS_ENDPOINT_URL>             #for MinIO set to 'http://localhost:9000'
 
 ## Install:
-    $ pip install safe_backup
+    $ pip install safe-backup
 
 ## Usage:
     $ sbackup [-h] [-L <LOG_LEVEL>] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
