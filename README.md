@@ -20,14 +20,15 @@ Run MinIo container if you want make your own object storage lab and test the pr
     $ mkdir -p ~/minio/data
 
     $ docker run \
+       -d \
        -p 9000:9000 \
-       -p 9090:9090 \
+       -p 9001:9001 \
        --user $(id -u):$(id -g) \
-       --name minio1 \
+       --name minio \
        -e "MINIO_ROOT_USER=ROOTUSER" \
        -e "MINIO_ROOT_PASSWORD=CHANGEME123" \
        -v ~/minio/data:/data \
-       quay.io/minio/minio server /data --console-address ":9090"
+       quay.io/minio/minio server /data --console-address ":9001"
 
 and then open 'http://localhost:9000' in your browser, login and make your access key.
 
