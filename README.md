@@ -53,10 +53,10 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
     $ pip install safe-backup
 
 ## Usage:
-    $ sbackup [-h] [-L <LOG_LEVEL>] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
-                                     -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> | 
-                                     -d <DB_KEY> <DEST>
-                                    )
+    $ sbackup [-h] [-L <LOG_LEVEL>]  [--version] (-l <SOURCE_TYPE> <SOURCE_ADDRESS> | 
+                                                  -c <SOURCE_TYPE> <SOURCE_ADDRESS> <DEST> | 
+                                                  -d <DB_KEY> <DEST>
+                                                 )
 
 Backup your local or s3 files safety.
 
@@ -65,6 +65,7 @@ Backup your local or s3 files safety.
 
     -h, --help          show this help message and exit
     -L <LOG_LEVEL>       get <LOG_LEVEL> (NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL) and Activate logging level
+    --version            Print version and exit
     -l <SOURCE_TYPE> <SOURCE_ADDRESS>
                         get <SOURCE_TYPE> as ['local' | 's3'] and [ <SOURCE_DIRECTORY> | <BUCKET_NAME> ] to create list of source files in db
                         

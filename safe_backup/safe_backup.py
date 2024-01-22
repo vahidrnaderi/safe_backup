@@ -738,7 +738,7 @@ def main():
         "--version",
         action='version',
         version=__version__ ,
-        help="Print version and exit.",
+        help="Print version and exit",
     )
 
     group = parser.add_mutually_exclusive_group(required=True)
