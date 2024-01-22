@@ -28,6 +28,7 @@ import redis
 import argparse
 import urllib.parse
 import multiprocessing
+from safe_backup import __version__
 
 # levels => 10    -> 20   -> 30      -> 40    -> 50
 # LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -733,6 +734,13 @@ def main():
         "ERROR, CRITICAL) and Activate logging level",
     )
 
+    parser.add_argument(
+        "--version",
+        action='version',
+        version=__version__ ,
+        help="Print version and exit.",
+    )
+
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument(
@@ -782,6 +790,7 @@ def main():
         else:
             parser.error(f"<LOG_LEVEL>='{args.L[0]}' is not defined!")
 
+    print(f"debug", f"main() *** {args = }")
     color_log("debug", f"main() *** {args = }")
     color_log("debug", f"main() *** {args.l = }")
     color_log("debug", f"main() *** {args.c = }")
