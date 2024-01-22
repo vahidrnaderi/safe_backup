@@ -1,7 +1,9 @@
 [build-system]
 requires = [
     "setuptools>=60",
-    "setuptools-scm>=8.0"]
+    "setuptools-scm>=8.0", 
+    "wheel",
+    ]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -52,6 +54,8 @@ sbackup = "safe_backup.safe_backup:main"
 
 [tool.setuptools_scm]
 version_file = "safe_backup/_version.py"
+version_scheme = "post-release"
+local_scheme = "dirty-tag"
 
 [tool.setuptools.dynamic]
 version = {attr = "safe_backup.__version__"}
