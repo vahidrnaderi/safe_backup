@@ -178,3 +178,4 @@ pyrightconfig.json
 env_variables.txt
 MinIO-credentials.json
 test_directory_tree/
+_version.py
