@@ -128,18 +128,26 @@ jobs:
           #push: true
           #tags: "latest,${{ steps.pre-step.outputs.release-version }}, 
           #tags: | 
+            #${{ github.repository }}:latest
             #latest
             #${{ steps.meta.outputs.tags }}
             #${{ steps.extract_version1.outputs.version }}
             #${{ steps.extract_version.outputs.version_from_display_title }}            
             #${{ steps.extract_version.outputs.version_from_head_branch }}
           #tags: ${{ steps.meta.outputs.tags }}
-          tags: | 
-            ${{ github.repository }}:latest   
+          tags: |    
             ${{ steps.meta.outputs.tags }}                    
             ${{ steps.extract_version.outputs.version_from_head_branch }}
-            ${{ steps.extract_version.outputs.major-minor }}
+            ${{ steps.extract_version.outputs.major_minor }}
+            $version_from_head_branch
+            $major_minor
+            ${{ version_from_head_branch }}
+            ${{ major_minor }}
+            ${{ github.repository }}:$version_from_head_branch
+            ${{ github.repository }}:$major_minor
+            ${{ github.repository }}:${{ version_from_head_branch }}
+            ${{ github.repository }}:${{ major_minor }}
             ${{ github.repository }}:${{ steps.extract_version.outputs.version_from_head_branch }}
-            ${{ github.repository }}:${{ steps.extract_version.outputs.major-minor }}
+            ${{ github.repository }}:${{ steps.extract_version.outputs.major_minor }}
           labels: ${{ steps.meta.outputs.labels }}
           tag_semver: true
