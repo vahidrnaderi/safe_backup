@@ -52,7 +52,7 @@ jobs:
           version_from_head_branch=$(echo "$head_branch" | sed 's/[^0-9.]*//g')          
           major=$(echo "$version_from_head_branch" | cut -d '.' -f 1)
           minor=$(echo "$version_from_head_branch" | cut -d '.' -f 2)
-          major-minor=$(echo "$major"."$minor")
+          major-minor=$(echo "$major.$minor")
 
           # Output the results
           #echo "Version from display_title: $version_from_display_title"
