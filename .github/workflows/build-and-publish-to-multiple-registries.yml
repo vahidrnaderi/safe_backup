@@ -112,8 +112,8 @@ jobs:
           #tags: ${{ steps.meta.outputs.tags }}
           tags: |    
             ${{ steps.meta.outputs.tags }}
-            ${{ github.repository }}:${{ GITHUB_OUTPUT.VERSION }}
-            ${{ github.repository }}:${{ GITHUB_OUTPUT.MAJOR_MINOR }}
-            ghcr.io/${{ github.repository }}:${{ GITHUB_OUTPUT.VERSION }}
-            ghcr.io/${{ github.repository }}:${{ GITHUB_OUTPUT.MAJOR_MINOR }}
+            ${{ github.repository }}:${{ steps.extract_version.outputs.VERSION }}
+            ${{ github.repository }}:${{ steps.extract_version.outputs.MAJOR_MINOR }}
+            ghcr.io/${{ github.repository }}:${{ steps.extract_version.outputs.VERSION }}
+            ghcr.io/${{ github.repository }}:${{ steps.extract_version.outputs.MAJOR_MINOR }}
           labels: ${{ steps.meta.outputs.labels }}
