@@ -136,10 +136,8 @@ jobs:
             #${{ steps.extract_version.outputs.version_from_head_branch }}
           #tags: ${{ steps.meta.outputs.tags }}
           tags: |    
-            ${{ steps.meta.outputs.tags }}                    
-            ${{ steps.extract_version.outputs.version_from_head_branch }}
-            ${{ steps.extract_version.outputs.major_minor }}
-            ${{ github.repository }}:${{ steps.extract_version.outputs.version_from_head_branch }}
+            ${{ steps.meta.outputs.tags }}
+            ${{ github.repository }}:${{ steps.extract_version.outputs.version }}
             ${{ github.repository }}:${{ steps.extract_version.outputs.major_minor }}
           labels: ${{ steps.meta.outputs.labels }}
           tag_semver: true
