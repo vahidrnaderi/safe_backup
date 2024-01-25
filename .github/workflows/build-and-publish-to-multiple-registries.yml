@@ -1,0 +1,114 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# GitHub recommends pinning actions to a commit SHA.
+# To get a newer version, you will need to update the SHA.
+# You can also reference a tag or branch, but the action may change without warning.
+
+name: Build and Publish Docker image
+
+on:
+    workflow_run:
+        workflows: [Upload Python Package]
+        types:
+          - completed
+
+jobs:
+  push_to_registry:
+    name: Push Docker image to multiple registries
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/safe_backup
+            ghcr.io/${{ github.repository }}
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable=true
+
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+        
+      - name: Extract version 1
+        id: extract_version1
+        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/v}"
+
+      - name: Use the version 1
+        run: |
+          echo "Extracted version: ${{ steps.extract_version1.outputs.version }}"
+      
+      - id: pre-step
+        shell: bash
+        run: echo "release-version=$(echo ${GITHUB_REF:10})" >> $GITHUB_OUTPUT
+      
+      - name: Extract version
+        id: extract_version
+        run: |
+          display_title="${{ github.event.workflow_run.display_title }}"
+          head_branch="${{ github.event.workflow_run.head_branch }}"
+
+          # Extract version from display_title
+          version_from_display_title=$(echo "$display_title" | sed 's/[^0-9.]*//g')
+
+          # Extract version from head_branch
+          version_from_head_branch=$(echo "$head_branch" | sed 's/[^0-9.]*//g')
+
+          # Output the results
+          echo "Version from display_title: $version_from_display_title"
+          echo "Version from head_branch: $version_from_head_branch"
+
+        # Now you can use ${{ steps.extract_version.outputs.version_from_display_title }} and ${{ steps.extract_version.outputs.version_from_head_branch }} in subsequent steps.
+        
+      - name: Use the version
+        run: |
+          echo "Extracted version: ${{ steps.extract_version.outputs.version_from_display_title }}"
+          echo "Extracted version: ${{ steps.extract_version.outputs.version_from_head_branch }}"
+          
+      - name: Build and push Docker images
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          #tags: "latest,${{ steps.pre-step.outputs.release-version }}, 
+          tags: | 
+            latest
+            ${{ steps.meta.outputs.tags }}
+            ${{ steps.extract_version1.outputs.version }}
+            ${{ steps.extract_version.outputs.version_from_display_title }}            
+            ${{ steps.extract_version.outputs.version_from_head_branch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tag_semver: true
