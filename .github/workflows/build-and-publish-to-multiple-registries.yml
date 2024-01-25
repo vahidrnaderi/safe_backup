@@ -42,27 +42,43 @@ jobs:
       - name: Extract version
         id: extract_version
         run: |
-          display_title="${{ github.event.workflow_run.display_title }}"
+          #display_title="${{ github.event.workflow_run.display_title }}"
           head_branch="${{ github.event.workflow_run.head_branch }}"
 
           # Extract version from display_title
-          version_from_display_title=$(echo "$display_title" | sed 's/[^0-9.]*//g')
+          #version_from_display_title=$(echo "$display_title" | sed 's/[^0-9.]*//g')
 
           # Extract version from head_branch
-          version_from_head_branch=$(echo "$head_branch" | sed 's/[^0-9.]*//g')
+          version_from_head_branch=$(echo "$head_branch" | sed 's/[^0-9.]*//g')          
+          major=$(echo "$version_from_head_branch" | cut -d '.' -f 1)
+          minor=$(echo "$version_from_head_branch" | cut -d '.' -f 2)
+          major-minor=$(echo "$major"."$minor")
 
           # Output the results
-          echo "Version from display_title: $version_from_display_title"
+          #echo "Version from display_title: $version_from_display_title"
           echo "Version from head_branch: $version_from_head_branch"
+          echo "::set-output name=version::$version_from_head_branch"
+          echo "::set-output name=major::$major"
+          echo "::set-output name=minor::$minor"
 
         # Now you can use ${{ steps.extract_version.outputs.version_from_display_title }} and ${{ steps.extract_version.outputs.version_from_head_branch }} in subsequent steps.
+        
+        #- name: Extract version
+          #id: extract_version
+          #run: |
+            #version_from_head_branch=$(echo "${{ github.event.head_commit.message }}" | grep -oP '(?<=^v?)[0-9]+\.[0-9]+\.[0-9]+')
+            #major=$(echo "$version_from_head_branch" | cut -d '.' -f 1)
+            #minor=$(echo "$version_from_head_branch" | cut -d '.' -f 2)
+            #echo "::set-output name=version::$version_from_head_branch"
+            #echo "::set-output name=major::$major"
+            #echo "::set-output name=minor::$minor"
         
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/safe_backup
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}
             ghcr.io/${{ github.repository }}
           # generate Docker tags based on the following events/attributes
           tags: |
@@ -74,9 +90,6 @@ jobs:
             type=semver,pattern={{major}}
             type=sha
             type=raw,value=latest,enable=true
-            type=raw,value=${{ steps.extract_version.outputs.version_from_head_branch }},enable=true,pattern={{version}}
-            type=raw,value=${{ steps.extract_version.outputs.version_from_head_branch }},enable=true,pattern={{major}}.{{minor}}
-            type=raw,value=${{ steps.extract_version.outputs.version_from_head_branch }},enable=true,pattern={{major}}
 
       - name: Dump GitHub context
         env:
@@ -106,7 +119,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          #push: true
           #tags: "latest,${{ steps.pre-step.outputs.release-version }}, 
           #tags: | 
             #latest
@@ -114,6 +127,10 @@ jobs:
             #${{ steps.extract_version1.outputs.version }}
             #${{ steps.extract_version.outputs.version_from_display_title }}            
             #${{ steps.extract_version.outputs.version_from_head_branch }}
-          tags: ${{ steps.meta.outputs.tags }}
+          #tags: ${{ steps.meta.outputs.tags }}
+          tags: | 
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}:latest                       
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}:${{ steps.extract_version.outputs.version_from_head_branch }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}:${{ steps.extract_version.outputs.major-minor }}
           labels: ${{ steps.meta.outputs.labels }}
           tag_semver: true
