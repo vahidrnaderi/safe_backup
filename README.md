@@ -89,7 +89,7 @@ and then open 'http://localhost:9000' in your browser, login and make your acces
 
     $ docker network create <YOUR-NEW-NETWORK-NAME>
 
-### 2-3)
+### 2-3) Connect containers to new docker network:
 
     $ docker network connect <YOUR-NEW-NETWORK-NAME> redis
     $ docker network connect <YOUR-NEW-NETWORK-NAME> minio
