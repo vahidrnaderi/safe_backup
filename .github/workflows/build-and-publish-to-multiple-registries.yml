@@ -59,10 +59,10 @@ jobs:
           # Output the results
           #echo "Version from display_title: $version_from_display_title"
           echo "Version from head_branch: $version_from_head_branch"
-          echo "::set-output name=version::$version_from_head_branch"
-          echo "::set-output name=major::$major"
-          echo "::set-output name=minor::$minor"
-          echo "::set-output name=major_minor::$major_minor"
+          echo "VERSION=$version_from_head_branch" >> $GITHUB_OUTPUT
+          echo "MAJOR=$major" >> $GITHUB_OUTPUT
+          echo "MINOR=$minor" >> $GITHUB_OUTPUT
+          echo "MAJOR_MINOR=$major_minor" >> $GITHUB_OUTPUT
 
         # Now you can use ${{ steps.extract_version.outputs.version_from_display_title }} and ${{ steps.extract_version.outputs.version_from_head_branch }} in subsequent steps.
         
@@ -125,7 +125,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          #push: true
+          push: true
           #tags: "latest,${{ steps.pre-step.outputs.release-version }}, 
           #tags: | 
             #${{ github.repository }}:latest
@@ -137,7 +137,8 @@ jobs:
           #tags: ${{ steps.meta.outputs.tags }}
           tags: |    
             ${{ steps.meta.outputs.tags }}
-            ${{ github.repository }}:${{ steps.extract_version.outputs.version }}
-            ${{ github.repository }}:${{ steps.extract_version.outputs.major_minor }}
+            ${{ github.repository }}:${{ env.VERSION }}
+            ${{ github.repository }}:${{ env.MAJOR_MINOR }}
+            ghcr.io/${{ github.repository }}:${{ env.VERSION }}
+            ghcr.io/${{ github.repository }}:${{ env.MAJOR_MINOR }}
           labels: ${{ steps.meta.outputs.labels }}
-          tag_semver: true
