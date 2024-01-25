@@ -60,6 +60,7 @@ jobs:
           echo "::set-output name=version::$version_from_head_branch"
           echo "::set-output name=major::$major"
           echo "::set-output name=minor::$minor"
+          echo "::set-output name=major_minor::$major_minor"
 
         # Now you can use ${{ steps.extract_version.outputs.version_from_display_title }} and ${{ steps.extract_version.outputs.version_from_head_branch }} in subsequent steps.
         
@@ -129,8 +130,11 @@ jobs:
             #${{ steps.extract_version.outputs.version_from_head_branch }}
           #tags: ${{ steps.meta.outputs.tags }}
           tags: | 
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}:latest                       
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}:${{ steps.extract_version.outputs.version_from_head_branch }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}:${{ steps.extract_version.outputs.major-minor }}
+            #${{ github.repository }}:latest   
+            ${{ steps.meta.outputs.tags }}                    
+            ${{ steps.extract_version.outputs.version_from_head_branch }}
+            ${{ steps.extract_version.outputs.major-minor }}
+            ${{ github.repository }}:${{ steps.extract_version.outputs.version_from_head_branch }}
+            ${{ github.repository }}:${{ steps.extract_version.outputs.major-minor }}
           labels: ${{ steps.meta.outputs.labels }}
           tag_semver: true
